@@ -1,0 +1,8 @@
+.DS_Store
+.env
+*.tfstate*
+.terraform/
+/fx
+/scenarios/scenarios
+/verification/verify
+backend.hcl

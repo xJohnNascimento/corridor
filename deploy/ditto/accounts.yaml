@@ -1,0 +1,7 @@
+accounts:
+  - id: corridor
+    key_env: DITTO_KEY_CORRIDOR
+    webhook_url_env: DITTO_WEBHOOK_URL_CORRIDOR
+    webhook_secret_env: DITTO_WEBHOOK_SECRET_CORRIDOR
+  - id: certification
+    key_env: DITTO_KEY_CERTIFICATION

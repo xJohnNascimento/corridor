@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package corridor.v1;
+
+import "corridor/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/xJohnNascimento/corridor/api/corridor/v1;corridorv1";
+
+service QuoteService {
+  rpc CreateQuote(CreateQuoteRequest) returns (CreateQuoteResponse);
+}
+
+message Quote {
+  string id = 1;
+  Money sell = 2;
+  Money fee = 3;
+  Money net_sell = 4;
+  Money buy = 5;
+  string customer_rate_e8 = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message CreateQuoteRequest {
+  string sell_currency = 1;
+  string buy_currency = 2;
+  string sell_amount = 3;
+}
+
+message CreateQuoteResponse {
+  Quote quote = 1;
+}

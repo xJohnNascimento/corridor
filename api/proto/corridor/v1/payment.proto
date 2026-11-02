@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package corridor.v1;
+
+import "corridor/v1/command.proto";
+import "corridor/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/xJohnNascimento/corridor/api/corridor/v1;corridorv1";
+
+// CreatePayment returns a durable receipt, usually with the conversion already decided.
+service PaymentService {
+  rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc GetTimeline(GetTimelineRequest) returns (GetTimelineResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc RequestCancel(RequestCancelRequest) returns (RequestCancelResponse);
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_ADMITTED = 1;
+  PAYMENT_STATUS_CONVERTING = 2;
+  PAYMENT_STATUS_CONVERTED = 3;
+  PAYMENT_STATUS_PAYING_OUT = 4;
+  PAYMENT_STATUS_COMPLETED = 5;
+  PAYMENT_STATUS_REJECTED = 6;
+  PAYMENT_STATUS_EXPIRED = 7;
+  PAYMENT_STATUS_PAYOUT_FAILED = 8;
+  PAYMENT_STATUS_PAYOUT_CANCELLED = 9;
+}
+
+enum PayoutStatus {
+  PAYOUT_STATUS_UNSPECIFIED = 0;
+  PAYOUT_STATUS_PLANNED = 1;
+  PAYOUT_STATUS_RESERVING = 2;
+  PAYOUT_STATUS_WAITING_FUNDS = 3;
+  PAYOUT_STATUS_WAITING_RELEASE = 4;
+  PAYOUT_STATUS_CANCELLING = 5;
+  PAYOUT_STATUS_SUBMITTING = 6;
+  PAYOUT_STATUS_SENT = 7;
+  PAYOUT_STATUS_COMPLETED = 8;
+  PAYOUT_STATUS_FAILED = 9;
+  PAYOUT_STATUS_CANCELLED = 10;
+  PAYOUT_STATUS_SKIPPED = 11;
+}
+
+enum OutcomeReason {
+  OUTCOME_REASON_UNSPECIFIED = 0;
+  OUTCOME_REASON_INSUFFICIENT_FUNDS = 1;
+  OUTCOME_REASON_LIQUIDITY_UNAVAILABLE = 2;
+  OUTCOME_REASON_RATE_UNAVAILABLE = 3;
+  OUTCOME_REASON_CUSTOMER_CANCELLED = 4;
+  OUTCOME_REASON_BENEFICIARY_ACCOUNT_CLOSED = 5;
+  OUTCOME_REASON_PAYOUT_REJECTED = 6;
+  OUTCOME_REASON_RESOLVED_NOT_PAID = 7;
+}
+
+enum ReviewReason {
+  REVIEW_REASON_UNSPECIFIED = 0;
+  REVIEW_REASON_FILL_OUT_OF_TOLERANCE = 1;
+  REVIEW_REASON_PAYOUT_UNCONFIRMED = 2;
+  REVIEW_REASON_CONFLICTING_PROVIDER_EVIDENCE = 3;
+  REVIEW_REASON_PROVIDER_CONTRACT_BREACH = 4;
+  REVIEW_REASON_LEDGER_UNEXPECTED = 5;
+  REVIEW_REASON_RECOVERY_REQUIRED = 6;
+}
+
+enum AdmissionStatus {
+  ADMISSION_STATUS_UNSPECIFIED = 0;
+  ADMISSION_STATUS_ADMITTED = 1;
+}
+
+message Beneficiary {
+  string name = 1;
+  string account = 2;
+  string bank_code = 3;
+  string country = 4;
+}
+
+message Receipt {
+  string payment_id = 1;
+  string payout_id = 2;
+  string quote_id = 3;
+  AdmissionStatus admission_status = 4;
+  google.protobuf.Timestamp accepted_at = 5;
+}
+
+message Payout {
+  string id = 1;
+  PayoutStatus status = 2;
+  Money amount = 3;
+  google.protobuf.Timestamp release_at = 4;
+  string provider_payout_id = 5;
+  // Set only in the audit export: when the payout was first handed to the provider. A payout that
+  // was never submitted must have no provider operation.
+  google.protobuf.Timestamp submission_started_at = 6;
+}
+
+message Payment {
+  string id = 1;
+  PaymentStatus status = 2;
+  OutcomeReason outcome_reason = 3;
+  bool in_review = 4;
+  ReviewReason review_reason = 5;
+  string quote_id = 6;
+  Money sell = 7;
+  Money fee = 8;
+  Money buy = 9;
+  string customer_rate_e8 = 10;
+  string beneficiary_id = 11;
+  Payout payout = 12;
+  Money returned = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message TimelineEvent {
+  string kind = 1;
+  string detail = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message CreatePaymentRequest {
+  string quote_id = 1;
+  Beneficiary beneficiary = 2;
+  string remittance_info = 3;
+}
+
+message CreatePaymentResponse {
+  Receipt receipt = 1;
+  Payment payment = 2;
+}
+
+message GetPaymentRequest {
+  string payment_id = 1;
+}
+
+message GetPaymentResponse {
+  Payment payment = 1;
+}
+
+message GetTimelineRequest {
+  string payment_id = 1;
+}
+
+message GetTimelineResponse {
+  repeated TimelineEvent events = 1;
+}
+
+message RequestCancelRequest {
+  string payment_id = 1;
+}
+
+message RequestCancelResponse {
+  Command command = 1;
+}

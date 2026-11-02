@@ -1,0 +1,14 @@
+provider_cash:
+  BRL: 100000000
+  CAD: 100000000
+  EUR: 100000000
+  USD: 100000000
+customers:
+  - id: acme
+    name: Acme
+    key_env: FX_CUSTOMER_KEY_ACME
+    funds: {BRL: 5000000, CAD: 5000000, EUR: 5000000, USD: 5000000}
+  - id: tinyco
+    name: TinyCo
+    key_env: FX_CUSTOMER_KEY_TINYCO
+    funds: {CAD: 5000}

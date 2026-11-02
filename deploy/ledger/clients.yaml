@@ -1,0 +1,23 @@
+clients:
+  - id: corridor-worker
+    secret_env: LEDGER_SECRET_CORRIDOR_WORKER
+    ledger: corridor
+    scopes: [provision, money, read]
+    namespaces: [corridor]
+    purposes: [funds, cash, clearing, fee_revenue, spread_revenue, fx_difference]
+  - id: corridor-audit
+    secret_env: LEDGER_SECRET_CORRIDOR_AUDIT
+    ledger: corridor
+    scopes: [read, audit]
+  - id: seed
+    secret_env: LEDGER_SECRET_SEED
+    ledger: corridor
+    scopes: [provision, money]
+    namespaces: [seed]
+    purposes: [funds, cash, funding_equity]
+  - id: operator
+    secret_env: LEDGER_SECRET_OPERATOR
+    ledger: corridor
+    scopes: [read, operator]
+    namespaces: [operator]
+    purposes: [funds, cash, clearing, fee_revenue, spread_revenue, funding_equity, fx_difference]

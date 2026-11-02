@@ -1,0 +1,47 @@
+currencies: [BRL, CAD, EUR, USD]
+corridors:
+  - {sell: BRL, buy: CAD}
+  - {sell: BRL, buy: EUR}
+  - {sell: BRL, buy: USD}
+  - {sell: CAD, buy: BRL}
+  - {sell: CAD, buy: EUR}
+  - {sell: CAD, buy: USD}
+  - {sell: EUR, buy: BRL}
+  - {sell: EUR, buy: CAD}
+  - {sell: EUR, buy: USD}
+  - {sell: USD, buy: BRL}
+  - {sell: USD, buy: CAD}
+  - {sell: USD, buy: EUR}
+limits:
+  min_sell: 10000
+  max_sell: 25000000
+pricing:
+  fee_bps: 50
+  spread_bps: 5
+  fill_tolerance_bps: 10
+quotes:
+  ttl: 30s
+  booking_margin: 15s
+  per_second: 1
+  burst: 5
+ledger:
+  id: corridor
+  provider_owner: ditto
+  house_owner: house
+profiles:
+  production:
+    cancel_grace: 60s
+    fast_path_wait: 2s
+    trade_safety: 5s
+    poll_initial: 30s
+    poll_max: 15m
+    poll_horizon: 72h
+    liquidity_retry: 5m
+  demo:
+    cancel_grace: 20s
+    fast_path_wait: 2s
+    trade_safety: 5s
+    poll_initial: 2s
+    poll_max: 10s
+    poll_horizon: 2m
+    liquidity_retry: 10s

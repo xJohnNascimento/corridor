@@ -1,0 +1,14 @@
+*
+!ledger/api
+!corridor
+corridor/.git
+corridor/.github
+corridor/docs
+corridor/infra
+corridor/test
+corridor/scenarios
+corridor/verification
+**/.env
+**/*.md
+corridor/**/*_test.go
+ledger/api/proto

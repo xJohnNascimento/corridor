@@ -1,0 +1,11 @@
+services:
+  ledger-migrate:
+    image: ledger:dev
+    build: ../ledger
+  ledger:
+    image: ledger:dev
+  ditto-migrate:
+    image: ditto:dev
+    build: ../ditto
+  ditto:
+    image: ditto:dev

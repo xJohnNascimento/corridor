@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package corridor.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/xJohnNascimento/corridor/api/corridor/v1;corridorv1";
+
+service CommandService {
+  rpc GetCommand(GetCommandRequest) returns (GetCommandResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+enum CommandState {
+  COMMAND_STATE_UNSPECIFIED = 0;
+  COMMAND_STATE_RECEIVED = 1;
+  COMMAND_STATE_ACCEPTED = 2;
+  COMMAND_STATE_APPLIED = 3;
+  COMMAND_STATE_REJECTED = 4;
+}
+
+enum CommandOperation {
+  COMMAND_OPERATION_UNSPECIFIED = 0;
+  COMMAND_OPERATION_CREATE_QUOTE = 1;
+  COMMAND_OPERATION_REQUEST_CANCEL = 2;
+  COMMAND_OPERATION_PROPOSE_RESOLUTION = 3;
+  COMMAND_OPERATION_APPROVE_RESOLUTION = 4;
+  COMMAND_OPERATION_ACKNOWLEDGE_FINDING = 5;
+}
+
+message Command {
+  string id = 1;
+  CommandOperation operation = 2;
+  string subject_id = 3;
+  CommandState state = 4;
+  string reason = 5;
+  repeated string effect_ids = 6;
+  google.protobuf.Timestamp received_at = 7;
+  google.protobuf.Timestamp accepted_at = 8;
+  google.protobuf.Timestamp applied_at = 9;
+}
+
+message GetCommandRequest {
+  string command_id = 1;
+}
+
+message GetCommandResponse {
+  Command command = 1;
+}

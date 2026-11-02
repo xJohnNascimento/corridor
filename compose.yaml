@@ -1,0 +1,201 @@
+name: corridor
+
+x-healthcheck: &healthcheck
+  interval: 2s
+  timeout: 3s
+  retries: 30
+
+x-fx-environment: &fx-environment
+  FX_PROFILE: demo
+  FX_ENVIRONMENT: local
+  FX_DATABASE_URL: postgres://fx_app@postgres:5432/fx?sslmode=disable
+  FX_AUDIT_DATABASE_URL: postgres://fx_audit@postgres:5432/fx?sslmode=disable
+  FX_DATASET_ID: local
+  FX_LEDGER_URL: http://ledger:9090
+  FX_LEDGER_SECRET: ${LEDGER_SECRET_CORRIDOR_WORKER:?run make .env first}
+  FX_DITTO_URL: http://ditto:9002
+  FX_DITTO_KEY: ${DITTO_KEY_CORRIDOR:?run make .env first}
+  FX_WEBHOOK_SECRET: ${DITTO_WEBHOOK_SECRET_CORRIDOR:?run make .env first}
+  FX_AUDITOR_KEY: ${FX_AUDITOR_KEY:?run make .env first}
+  FX_OPERATORS: alice,bob
+  FX_OPERATOR_KEY_ALICE: ${FX_OPERATOR_KEY_ALICE:?run make .env first}
+  FX_OPERATOR_KEY_BOB: ${FX_OPERATOR_KEY_BOB:?run make .env first}
+  TEMPORAL_ADDRESS: temporal:7233
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    environment:
+      POSTGRES_DB: fx
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fx"]
+
+  temporal:
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
+    command:
+      - server
+      - start-dev
+      - --ip=0.0.0.0
+      - --db-filename=/home/temporal/temporal.db
+      - --search-attribute=PaymentStatus=Keyword
+      - --search-attribute=InReview=Bool
+      - --search-attribute=ReviewSince=Datetime
+      - --search-attribute=CustomerId=Keyword
+    volumes:
+      - temporal-data:/home/temporal
+    ports:
+      - "127.0.0.1:7233:7233"
+      - "127.0.0.1:8233:8233"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+
+  temporal-spike:
+    profiles: ["spike"]
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
+    command:
+      - server
+      - start-dev
+      - --ip=0.0.0.0
+      - --headless
+      - --dynamic-config-value=limit.historyCount.suggestContinueAsNew=50
+    ports:
+      - "127.0.0.1:7243:7233"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+
+  ledger-migrate:
+    image: ghcr.io/xjohnnascimento/ledger:0.3.0
+    command: ["migrate"]
+    environment:
+      LEDGER_DATABASE_URL: postgres://postgres@postgres:5432/ledger?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ledger:
+    image: ghcr.io/xjohnnascimento/ledger:0.3.0
+    command: ["serve"]
+    environment:
+      LEDGER_DATABASE_URL: postgres://ledger_app@postgres:5432/ledger?sslmode=disable
+      LEDGER_AUDIT_DATABASE_URL: postgres://ledger_audit@postgres:5432/ledger?sslmode=disable
+      LEDGER_SECRET_CORRIDOR_WORKER: ${LEDGER_SECRET_CORRIDOR_WORKER:?run make .env first}
+      LEDGER_SECRET_CORRIDOR_AUDIT: ${LEDGER_SECRET_CORRIDOR_AUDIT:?run make .env first}
+      LEDGER_SECRET_SEED: ${LEDGER_SECRET_SEED:?run make .env first}
+      LEDGER_SECRET_OPERATOR: ${LEDGER_SECRET_OPERATOR:?run make .env first}
+    configs:
+      - source: ledger-clients
+        target: /etc/ledger/clients.yaml
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      ledger-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "/ledger", "healthcheck"]
+
+  ditto-migrate:
+    image: ghcr.io/xjohnnascimento/ditto:0.4.0
+    command: ["migrate"]
+    environment:
+      DITTO_DATABASE_URL: postgres://postgres@postgres:5432/ditto?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ditto:
+    image: ghcr.io/xjohnnascimento/ditto:0.4.0
+    command: ["serve"]
+    environment:
+      DITTO_PROFILE: local
+      DITTO_DATASET_ID: local
+      DITTO_DATABASE_URL: postgres://postgres@postgres:5432/ditto?sslmode=disable
+      DITTO_ADMIN_KEY: ${DITTO_ADMIN_KEY:?run make .env first}
+      DITTO_KEY_CORRIDOR: ${DITTO_KEY_CORRIDOR:?run make .env first}
+      DITTO_KEY_CERTIFICATION: ${DITTO_KEY_CERTIFICATION:?run make .env first}
+      DITTO_WEBHOOK_URL_CORRIDOR: http://fx-api:8081/webhooks/ditto
+      DITTO_WEBHOOK_SECRET_CORRIDOR: ${DITTO_WEBHOOK_SECRET_CORRIDOR:?run make .env first}
+      DITTO_WEBHOOK_RETRY_WINDOW: 2m
+    configs:
+      - source: ditto-accounts
+        target: /etc/ditto/accounts.yaml
+      - source: ditto-rates
+        target: /etc/ditto/rates.yaml
+    ports:
+      - "127.0.0.1:9002:9002"
+    depends_on:
+      ditto-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "/ditto", "healthcheck"]
+
+  fx-migrate:
+    image: corridor-fx:local
+    build:
+      context: ..
+      dockerfile: corridor/Dockerfile
+    command: ["migrate"]
+    environment:
+      FX_DATABASE_URL: postgres://postgres@postgres:5432/fx?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  fx-api:
+    image: corridor-fx:local
+    command: ["api"]
+    restart: unless-stopped
+    environment: *fx-environment
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      fx-migrate:
+        condition: service_completed_successfully
+      temporal:
+        condition: service_healthy
+      ledger:
+        condition: service_healthy
+      ditto:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "/fx", "healthcheck"]
+
+  fx-worker:
+    image: corridor-fx:local
+    command: ["worker"]
+    restart: unless-stopped
+    environment: *fx-environment
+    depends_on:
+      fx-api:
+        condition: service_healthy
+
+  fx-dispatch:
+    image: corridor-fx:local
+    command: ["dispatch"]
+    restart: unless-stopped
+    environment: *fx-environment
+    depends_on:
+      fx-api:
+        condition: service_healthy
+
+configs:
+  ledger-clients:
+    file: deploy/ledger/clients.yaml
+  ditto-accounts:
+    file: deploy/ditto/accounts.yaml
+  ditto-rates:
+    file: deploy/ditto/rates.yaml
+
+volumes:
+  temporal-data:

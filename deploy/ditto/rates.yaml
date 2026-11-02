@@ -1,0 +1,13 @@
+rates:
+  - {sell: CAD, buy: USD, rate_e8: "73500000"}
+  - {sell: USD, buy: CAD, rate_e8: "136054422"}
+  - {sell: EUR, buy: USD, rate_e8: "108000000"}
+  - {sell: USD, buy: EUR, rate_e8: "92592593"}
+  - {sell: BRL, buy: USD, rate_e8: "18000000"}
+  - {sell: USD, buy: BRL, rate_e8: "555555556"}
+  - {sell: CAD, buy: EUR, rate_e8: "68055556"}
+  - {sell: EUR, buy: CAD, rate_e8: "146938776"}
+  - {sell: CAD, buy: BRL, rate_e8: "408333333"}
+  - {sell: BRL, buy: CAD, rate_e8: "24489796"}
+  - {sell: EUR, buy: BRL, rate_e8: "600000000"}
+  - {sell: BRL, buy: EUR, rate_e8: "16666667"}

@@ -1,0 +1,52 @@
+version: "2"
+run:
+  build-tags:
+    - spike
+    - providertest
+linters:
+  enable:
+    - bodyclose
+    - depguard
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - gosec
+    - misspell
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    forbidigo:
+      forbid:
+        - pattern: ^(log|slog)\.
+          msg: workflow code logs through workflow.GetLogger only
+    depguard:
+      rules:
+        services:
+          list-mode: lax
+          deny:
+            - pkg: github.com/xJohnNascimento/ditto
+              desc: Corridor talks to Ditto over HTTP only
+            - pkg: github.com/xJohnNascimento/ledger/internal
+              desc: import only the ledger's api module
+        verification:
+          list-mode: lax
+          files:
+            - "**/verification/**"
+          deny:
+            - pkg: github.com/xJohnNascimento/corridor/internal
+              desc: the checker proves the system from its exports and shares no Corridor code
+  exclusions:
+    rules:
+      - path-except: internal/payment/workflow\.go
+        linters: [forbidigo]
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/xJohnNascimento/corridor

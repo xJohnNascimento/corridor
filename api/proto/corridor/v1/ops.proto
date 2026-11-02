@@ -1,0 +1,239 @@
+syntax = "proto3";
+
+package corridor.v1;
+
+import "corridor/v1/command.proto";
+import "corridor/v1/common.proto";
+import "corridor/v1/payment.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/xJohnNascimento/corridor/api/corridor/v1;corridorv1";
+
+// Served on the internal port only.
+service OpsService {
+  rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ProposeResolution(ProposeResolutionRequest) returns (ProposeResolutionResponse);
+  rpc ApproveResolution(ApproveResolutionRequest) returns (ApproveResolutionResponse);
+  rpc GetReconciliation(GetReconciliationRequest) returns (GetReconciliationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ListFindings(ListFindingsRequest) returns (ListFindingsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc AcknowledgeFinding(AcknowledgeFindingRequest) returns (AcknowledgeFindingResponse);
+  rpc ExportSnapshot(ExportSnapshotRequest) returns (stream ExportSnapshotResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_ACCEPT_FILL = 1;
+  DECISION_PAID = 2;
+  DECISION_NOT_PAID = 3;
+  DECISION_RETRY_STEP = 4;
+  DECISION_RESUME = 5;
+}
+
+enum SubjectKind {
+  SUBJECT_KIND_UNSPECIFIED = 0;
+  SUBJECT_KIND_TRADE = 1;
+  SUBJECT_KIND_PAYOUT = 2;
+  SUBJECT_KIND_PAYMENT = 3;
+}
+
+enum EvidenceKind {
+  EVIDENCE_KIND_UNSPECIFIED = 0;
+  EVIDENCE_KIND_PROVIDER_READ = 1;
+  EVIDENCE_KIND_STATEMENT_LINE = 2;
+  EVIDENCE_KIND_FENCE_RESULT = 3;
+  EVIDENCE_KIND_LEDGER_CORRECTION = 4;
+  EVIDENCE_KIND_WATCHDOG_FINDING = 5;
+}
+
+enum ReconciliationStatus {
+  RECONCILIATION_STATUS_UNSPECIFIED = 0;
+  RECONCILIATION_STATUS_PASS = 1;
+  RECONCILIATION_STATUS_FAIL = 2;
+  RECONCILIATION_STATUS_INCOMPLETE = 3;
+}
+
+enum FindingStatus {
+  FINDING_STATUS_UNSPECIFIED = 0;
+  FINDING_STATUS_OPEN = 1;
+  FINDING_STATUS_ACKNOWLEDGED = 2;
+  FINDING_STATUS_RESOLVED = 3;
+}
+
+message Review {
+  string payment_id = 1;
+  ReviewReason reason = 2;
+  int32 revision = 3;
+  google.protobuf.Timestamp opened_at = 4;
+  string current_proposal_id = 5;
+}
+
+message Evidence {
+  EvidenceKind kind = 1;
+  string id = 2;
+  string digest = 3;
+}
+
+message ReconciliationRun {
+  string id = 1;
+  ReconciliationStatus status = 2;
+  int32 revision = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp finished_at = 5;
+  map<string, int64> counters = 6;
+}
+
+message Finding {
+  string id = 1;
+  string invariant = 2;
+  SubjectKind subject_kind = 3;
+  string subject_id = 4;
+  FindingStatus status = 5;
+  string owner = 6;
+  string detail = 7;
+  google.protobuf.Timestamp first_seen_at = 8;
+  google.protobuf.Timestamp last_seen_at = 9;
+}
+
+message TradeRecord {
+  string id = 1;
+  string payment_id = 2;
+  string provider_reference = 3;
+  string status = 4;
+  Money sold = 5;
+  Money delivered = 6;
+  string provider_trade_id = 7;
+  string reservation_id = 8;
+  string entry_id = 9;
+}
+
+message EvidenceRecord {
+  string id = 1;
+  string source_kind = 2;
+  string provider_reference = 3;
+  string outcome = 4;
+  Money amount = 5;
+  int64 sequence = 6;
+  string statement_line_id = 7;
+  string digest = 8;
+  string operation = 9;
+}
+
+message LedgerIntentRecord {
+  string namespace = 1;
+  string reference = 2;
+  string operation = 3;
+  string payment_id = 4;
+  string request_hash = 5;
+  string observed_result = 6;
+}
+
+message ListReviewsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListReviewsResponse {
+  repeated Review reviews = 1;
+  string next_page_token = 2;
+}
+
+message ProposeResolutionRequest {
+  string payment_id = 1;
+  SubjectKind subject_kind = 2;
+  string subject_id = 3;
+  int32 review_revision = 4;
+  Decision decision = 5;
+  string provider_reference = 6;
+  Money amount = 7;
+  Evidence evidence = 8;
+  string note = 9;
+}
+
+message ProposeResolutionResponse {
+  Command command = 1;
+  string proposal_id = 2;
+  string proposal_digest = 3;
+}
+
+message ApproveResolutionRequest {
+  string proposal_id = 1;
+  string proposal_digest = 2;
+}
+
+message ApproveResolutionResponse {
+  Command command = 1;
+}
+
+message GetReconciliationRequest {
+  // Empty for the latest run.
+  string run_id = 1;
+}
+
+message GetReconciliationResponse {
+  ReconciliationRun run = 1;
+}
+
+message ListFindingsRequest {
+  FindingStatus status = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListFindingsResponse {
+  repeated Finding findings = 1;
+  string next_page_token = 2;
+}
+
+message AcknowledgeFindingRequest {
+  string finding_id = 1;
+  string note = 2;
+}
+
+message AcknowledgeFindingResponse {
+  Command command = 1;
+}
+
+message ExportSnapshotRequest {}
+
+// A proposal with every field its digest covers, so a verifier can recompute the digest and check
+// who made and who approved it.
+message ProposalRecord {
+  string id = 1;
+  string payment_id = 2;
+  string subject_kind = 3;
+  string subject_id = 4;
+  string review_reason = 5;
+  int32 review_revision = 6;
+  string decision = 7;
+  string provider_reference = 8;
+  string currency = 9;
+  int64 amount = 10;
+  string evidence_id = 11;
+  string evidence_digest = 12;
+  string maker = 13;
+  int32 proposal_revision = 14;
+  string digest = 15;
+  string approver = 16;
+  string approval_command_id = 17;
+}
+
+message ExportSnapshotResponse {
+  oneof record {
+    SnapshotHeader header = 1;
+    Payment payment = 2;
+    TradeRecord trade = 3;
+    EvidenceRecord evidence = 4;
+    LedgerIntentRecord ledger_intent = 5;
+    Command command = 6;
+    SnapshotTrailer trailer = 7;
+    ProposalRecord proposal = 8;
+  }
+}
