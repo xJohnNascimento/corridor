@@ -48,7 +48,7 @@ proto:
 proto-check: proto
 	git diff --exit-code -- api
 
-spike:
+spike: .env
 	docker compose --profile spike up --detach --wait temporal-spike
 	TEMPORAL_ADDRESS=127.0.0.1:7243 go test -tags spike -count=1 -v ./test/spike/; status=$$?; \
 	docker compose --profile spike rm --stop --force temporal-spike; exit $$status

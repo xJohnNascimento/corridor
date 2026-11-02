@@ -1,0 +1,82 @@
+name: release-label
+
+# Every pull request says what merging it releases, with exactly one label: release: major,
+# release: minor, release: patch or release: none. A change that breaks the API compared with the
+# last release must be released as one: major, or minor before 1.0.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-tags depName=xJohnNascimento/ledger
+  LEDGER_REF: v0.3.0
+
+jobs:
+  release-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      bump: ${{ steps.label.outputs.bump }}
+    steps:
+      - id: label
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          bump=$(jq -r '[.[] | select(startswith("release: ")) | ltrimstr("release: ")] | if length == 1 then .[0] else "" end' <<<"$LABELS")
+          case $bump in
+          major | minor | patch | none) echo "bump=$bump" >> "$GITHUB_OUTPUT" ;;
+          *)
+            echo "::error::Label this pull request with exactly one of release: major, release: minor, release: patch or release: none."
+            exit 1
+            ;;
+          esac
+
+  compatibility:
+    needs: release-label
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: corridor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: corridor
+          fetch-depth: 0
+      # go tool resolves the ledger API module from its sibling checkout, as every Go job does.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: xJohnNascimento/ledger
+          ref: ${{ env.LEDGER_REF }}
+          path: ledger
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: corridor/go.mod
+          cache-dependency-path: corridor/go.sum
+      - name: buf breaking against the last release
+        env:
+          BUMP: ${{ needs.release-label.outputs.bump }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          merged=$(git tag --merged "$BASE" --list 'v*' --sort=-v:refname)
+          last=$(grep -m1 -E '^v[0-9]+\.[0-9]+\.[0-9]+$' <<<"$merged" || true)
+          if [ -z "$last" ]; then
+            echo "No release yet, so there is nothing to compare with."
+            exit 0
+          fi
+          if go tool buf breaking --against ".git#tag=$last"; then
+            exit 0
+          fi
+          if [ "$BUMP" = major ] || { [ "$BUMP" = minor ] && [ "${last%%.*}" = v0 ]; }; then
+            echo "::notice::The API breaks compatibility with $last, and this pull request releases it as $BUMP."
+            exit 0
+          fi
+          echo "::error::The API breaks compatibility with $last: label this pull request release: major (release: minor before 1.0)."
+          exit 1

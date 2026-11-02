@@ -170,7 +170,9 @@ Scenarios are listed in [integration, section 6](docs/integration.md#6-integrati
 | `make replay-break` | Shows the replay gate failing an unversioned workflow change and passing the same change behind `GetVersion` |
 | `make proto`, `make tf-validate` | Regenerates the API code; validates and lints the Terraform without cloud credentials |
 
-CI runs these checks on every pull request (`proto-check` in place of `proto`), including every scenario on a fresh stack. It builds against the ledger and Ditto releases named at the top of [`ci.yml`](.github/workflows/ci.yml) (`LEDGER_REF`, `DITTO_REF`), the ones `compose.yaml` runs. A `v*` tag releases a multi-architecture image to GitHub Container Registry, with an SBOM and a cosign signature, only after CI passes.
+CI runs these checks on every pull request (`proto-check` in place of `proto`), including every scenario on a fresh stack. It builds against the ledger and Ditto releases named at the top of [`ci.yml`](.github/workflows/ci.yml) (`LEDGER_REF`, `DITTO_REF`), the ones `compose.yaml` runs; Renovate proposes each new release of either as a pull request.
+
+Every pull request carries one label that says what merging it releases: `release: major`, `release: minor`, `release: patch` or `release: none`. Once it merges and CI passes on `main`, the next `vX.Y.Z` is tagged, with GitHub release notes and a multi-architecture image on GitHub Container Registry that carries an SBOM and a cosign signature. A change that breaks the API compared with the last release must be labelled `release: major`, or `release: minor` before 1.0. A `v*` tag pushed by hand still releases, after CI passes.
 
 ## Configuration
 

@@ -1,21 +1,32 @@
 name: release
 
+# version.yml calls this with the version of a merged pull request, once CI has passed on that
+# merge. A tag pushed by hand still releases, after running CI here.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      version:
+        description: The release tag, such as v0.4.0
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 env:
+  # renovate: datasource=github-tags depName=xJohnNascimento/ledger
   LEDGER_REF: v0.3.0
 
 jobs:
   ci:
+    if: github.event_name == 'push'
     uses: ./.github/workflows/ci.yml
 
   image:
     needs: ci
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -25,6 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.version || github.ref }}
           path: corridor
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,7 +53,7 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/xjohnnascimento/corridor
-          tags: type=semver,pattern={{version}}
+          tags: type=semver,pattern={{version}},value=${{ inputs.version || github.ref_name }}
       - id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:

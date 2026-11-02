@@ -1,0 +1,57 @@
+name: version
+
+# Cuts a release once CI passes on a merge to main. Every pull request carries one release label,
+# which release-label.yml enforces, and the merges since the last release add up to the largest of
+# their labels. The tag gets GitHub's release notes and the image the release workflow publishes.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # One run at a time, so two merges never take the same version.
+    concurrency:
+      group: version
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - id: next
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(.github/scripts/next-version.sh "$SHA")
+          if [ -z "$version" ]; then
+            echo "No pull request merged since the last release asks for one."
+            exit 0
+          fi
+          gh release create "$version" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$version" --generate-notes
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # A tag pushed with the workflow's own token starts no other workflow, so the image is built here.
+  release:
+    needs: version
+    if: needs.version.outputs.version != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write

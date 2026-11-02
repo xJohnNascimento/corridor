@@ -1,5 +1,31 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
-  "postUpdateOptions": ["gomodTidy"]
+  "postUpdateOptions": ["gomodTidy"],
+  "labels": ["release: patch"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The ledger and Ditto releases the workflows check out",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z_]+: (?<currentValue>\\S+)"]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Updates that only touch the workflows release nothing",
+      "matchManagers": ["github-actions"],
+      "labels": ["release: none"]
+    },
+    {
+      "description": "A ledger release moves the workflows' checkout and the compose image together",
+      "matchPackageNames": ["xJohnNascimento/ledger", "ghcr.io/xjohnnascimento/ledger"],
+      "groupName": "ledger"
+    },
+    {
+      "description": "A Ditto release moves the workflows' checkout and the compose image together",
+      "matchPackageNames": ["xJohnNascimento/ditto", "ghcr.io/xjohnnascimento/ditto"],
+      "groupName": "ditto"
+    }
+  ]
 }
