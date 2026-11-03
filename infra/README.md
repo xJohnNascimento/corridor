@@ -1,6 +1,6 @@
 # infra
 
-Terraform for the optional AWS sandbox. Local runs never need it: `make up` uses Docker Compose ([`docs/plan.md`, section 3](../docs/plan.md#3-local-stack)).
+Terraform for the optional AWS sandbox, a disposable test environment that is never production. Local runs never need it: `make up` uses Docker Compose ([`docs/plan.md`, section 3](../docs/plan.md#3-local-stack)).
 
 This repository holds two Terraform environments: the **foundation** shared by all three services, and **Corridor's own services**. The ledger and Ditto deploy themselves from their own repositories ([ADR 0011](../docs/adr/0011-shared-foundation-through-ssm.md)).
 

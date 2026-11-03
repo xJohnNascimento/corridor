@@ -8,7 +8,7 @@ on:
   workflow_call:
     inputs:
       version:
-        description: The release tag, such as v0.4.0
+        description: The release tag, such as v1.0.0
         type: string
         required: true
 

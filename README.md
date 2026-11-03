@@ -10,7 +10,7 @@ Corridor is one of three repositories that run together:
 | [ledger](https://github.com/xJohnNascimento/ledger) | Accounts, balances, reservations and journal entries, enforced by the database |
 | [ditto](https://github.com/xJohnNascimento/ditto) | A simulated FX provider and payout rail that fails on demand |
 
-Corridor is also where the system comes together: its Compose stack runs all three services, and its scenarios, verifier and demo exercise them as one. Terraform for an optional AWS sandbox is in each repository's `infra/`; the shared foundation is here.
+Corridor is also where the system comes together: its Compose stack runs all three services, and its scenarios, verifier and demo exercise them as one. Each repository's `infra/` holds Terraform for a disposable AWS test environment: ECS on Fargate, a database per service, a deploy role per repository trusted through GitHub OIDC, and generated secrets that never appear in a plan or in state. The shared foundation, the apply order and a cost estimate are in [`infra/README.md`](infra/README.md).
 
 | Process | Port (localhost) | Role |
 | --- | --- | --- |
@@ -22,9 +22,9 @@ Corridor is also where the system comes together: its Compose stack runs all thr
 | Temporal | 7233, UI 8233 | Durable execution; the UI shows every payment's history |
 | PostgreSQL 17 | 5432 | One container, one database per service |
 
-**Status:** the showcase exists end to end: the three services, every failure path, people in the loop, the independent verifier, the demo and Terraform that validates. Every scenario passes with the verifier after each. Versions are on the [Releases page](https://github.com/xJohnNascimento/corridor/releases).
+**Status:** the showcase exists end to end: the three services, every failure path, people in the loop, the independent verifier and the demo. Every scenario passes with the verifier after each. Versions are on the [Releases page](https://github.com/xJohnNascimento/corridor/releases).
 
-**Next (v2):** scheduled reconciliation, a runtime watchdog, Continue-As-New at safe boundaries, a gated RESUME decision after a termination and a sandbox deployment, planned in [`docs/plan.md`](docs/plan.md).
+**Next (v2):** scheduled reconciliation, a runtime watchdog, Continue-As-New at safe boundaries, a gated RESUME decision after a termination and one deployment to the AWS test environment, planned in [`docs/plan.md`](docs/plan.md).
 
 ## How a payment works
 
@@ -183,7 +183,7 @@ go work init . ./scenarios ./verification ../ledger/api
 
 Delete `go.work` and `go.work.sum` to go back to the published module.
 
-Every pull request carries one label that says what merging it releases: `release: major`, `release: minor`, `release: patch` or `release: none`. Once it merges and CI passes on `main`, the next `vX.Y.Z` is tagged, with GitHub release notes and a multi-architecture image on GitHub Container Registry that carries an SBOM and a cosign signature. A change that breaks the API compared with the last release must be labelled `release: major`, or `release: minor` before 1.0. A `v*` tag pushed by hand still releases, after CI passes.
+Every pull request carries one label that says what merging it releases: `release: major`, `release: minor`, `release: patch` or `release: none`. Once it merges and CI passes on `main`, the next `vX.Y.Z` is tagged, with GitHub release notes and a multi-architecture image on GitHub Container Registry that carries an SBOM and a cosign signature. A change that breaks the API compared with the last release must be labelled `release: major`. A `v*` tag pushed by hand still releases, after CI passes.
 
 ## Configuration
 
@@ -193,7 +193,7 @@ Every pull request carries one label that says what merging it releases: `releas
 | `FX_PROFILE` | Environment | `demo` (short timers, failpoints) or `production`; `demo` runs only where `FX_ENVIRONMENT=local` |
 | `FX_OPERATORS`, `FX_OPERATOR_KEY_<NAME>` | Environment | Who may propose and approve decisions |
 | `FX_CUSTOMER_KEY` | Environment | The key `fx cli customers upsert` registers, kept out of process listings |
-| Database URLs, ledger and Ditto endpoints and secrets | Environment | Generated into `.env` locally; Secrets Manager in the sandbox ([`infra/README.md`](infra/README.md)) |
+| Database URLs, ledger and Ditto endpoints and secrets | Environment | Generated into `.env` locally; Secrets Manager in the AWS test environment ([`infra/README.md`](infra/README.md)) |
 
 ## Code layout
 
@@ -206,7 +206,7 @@ Every pull request carries one label that says what merging it releases: `releas
 | [`scenarios/`](scenarios/) | The seed, the scenario runner and the demo (its own Go module) |
 | [`verification/`](verification/) | The independent checker (its own Go module, importing nothing from `internal/`) |
 | [`test/`](test/) | The Temporal spike and the replay corpus |
-| [`infra/`](infra/) | Terraform: the shared foundation and Corridor's sandbox |
+| [`infra/`](infra/) | Terraform: the shared foundation and Corridor's services |
 
 The conventions behind it are in [design, section 14](docs/design.md#14-code-layout-and-go-conventions).
 
@@ -220,7 +220,7 @@ The conventions behind it are in [design, section 14](docs/design.md#14-code-lay
 | [`docs/runbooks.md`](docs/runbooks.md) | What to do for each review reason and each alert |
 | [`docs/adr/`](docs/adr/README.md) | Architecture decisions |
 | [`docs/spike.md`](docs/spike.md) | What the Temporal spike checked on the pinned SDK |
-| [`infra/README.md`](infra/README.md) | The shared sandbox foundation and Corridor's own deployment |
+| [`infra/README.md`](infra/README.md) | The AWS test environment: the shared foundation and Corridor's own deployment |
 
 ## License
 

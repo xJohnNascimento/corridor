@@ -2,7 +2,7 @@ name: release-label
 
 # Every pull request says what merging it releases, with exactly one label: release: major,
 # release: minor, release: patch or release: none. A change that breaks the API compared with the
-# last release must be released as one: major, or minor before 1.0.
+# last release must be released as a major version.
 on:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
@@ -60,9 +60,9 @@ jobs:
           if go tool buf breaking --against ".git#tag=$last"; then
             exit 0
           fi
-          if [ "$BUMP" = major ] || { [ "$BUMP" = minor ] && [ "${last%%.*}" = v0 ]; }; then
+          if [ "$BUMP" = major ]; then
             echo "::notice::The API breaks compatibility with $last, and this pull request releases it as $BUMP."
             exit 0
           fi
-          echo "::error::The API breaks compatibility with $last: label this pull request release: major (release: minor before 1.0)."
+          echo "::error::The API breaks compatibility with $last: label this pull request release: major."
           exit 1
