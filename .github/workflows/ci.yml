@@ -13,51 +13,30 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-ci
   cancel-in-progress: true
 
-# Corridor builds against the ledger's API module from a sibling checkout until that module is
-# published, so every Go job checks out both repositories side by side. The siblings are pinned to
-# the releases compose.yaml runs, so a moving HEAD never changes a build.
-env:
-  # renovate: datasource=github-tags depName=xJohnNascimento/ledger
-  LEDGER_REF: v0.3.0
-  # renovate: datasource=github-tags depName=xJohnNascimento/ditto
-  DITTO_REF: v0.4.0
-
-defaults:
-  run:
-    working-directory: corridor
-
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            corridor/go.sum
-            corridor/scenarios/go.sum
-            corridor/verification/go.sum
+            go.sum
+            scenarios/go.sum
+            verification/go.sum
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.15.0
-          working-directory: corridor
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.15.0
-          working-directory: corridor/scenarios
+          working-directory: scenarios
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.15.0
-          working-directory: corridor/verification
+          working-directory: verification
       - run: go tool workflowcheck ./...
       - name: verification stays independent
         run: make verification-imports
@@ -69,45 +48,31 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            corridor/go.sum
-            corridor/scenarios/go.sum
-            corridor/verification/go.sum
+            go.sum
+            scenarios/go.sum
+            verification/go.sum
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
-        working-directory: corridor/scenarios
+        working-directory: scenarios
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
-        working-directory: corridor/verification
+        working-directory: verification
 
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            corridor/go.sum
-            corridor/scenarios/go.sum
-            corridor/verification/go.sum
+            go.sum
+            scenarios/go.sum
+            verification/go.sum
       - run: make test
       - run: make replay-break
 
@@ -116,20 +81,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            corridor/go.sum
-            corridor/scenarios/go.sum
-            corridor/verification/go.sum
+            go.sum
+            scenarios/go.sum
+            verification/go.sum
       # Breaking changes are judged against the release label, in release-label.yml.
       - run: make proto-check
 
@@ -138,20 +96,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            corridor/go.sum
-            corridor/scenarios/go.sum
-            corridor/verification/go.sum
+            go.sum
+            scenarios/go.sum
+            verification/go.sum
       - run: make spike
 
   # The whole stack, every v1 scenario, and the independent verification after each one.
@@ -160,55 +111,35 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ditto
-          ref: ${{ env.DITTO_REF }}
-          path: ditto
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            corridor/go.sum
-            corridor/scenarios/go.sum
-            corridor/verification/go.sum
-      - run: make up-dev seed
+            go.sum
+            scenarios/go.sum
+            verification/go.sum
+      - run: make up seed
       - run: make providertest
       - run: make scenarios VERIFY=1
       - run: make verify
       # Without .env the stack never started, so there are no logs to collect.
-      - if: failure() && hashFiles('corridor/.env') != ''
+      - if: failure() && hashFiles('.env') != ''
         run: docker compose logs --no-color > stack.log
-      - if: failure() && hashFiles('corridor/.env') != ''
+      - if: failure() && hashFiles('.env') != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stack-log
-          path: corridor/stack.log
+          path: stack.log
 
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: corridor/Dockerfile
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -219,8 +150,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: corridor
       - run: make tf-validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

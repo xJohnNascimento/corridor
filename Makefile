@@ -9,7 +9,7 @@ GOMODCACHE := $(shell go env GOMODCACHE)
 DEV := -f compose.yaml -f compose.dev.yaml
 STACK ?= up
 LOAD_ENV := set -a && . $(CURDIR)/.env && set +a
-GOLANGCI_LINT = docker run --rm -v "$(CURDIR)":/src -v "$(CURDIR)/../ledger/api":/ledger/api -v "$(GOMODCACHE)":/go/pkg/mod -w /src/$(1) golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run
+GOLANGCI_LINT = docker run --rm -v "$(CURDIR)":/src -v "$(GOMODCACHE)":/go/pkg/mod -w /src/$(1) golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run
 
 .PHONY: up up-dev down test lint verification-imports proto proto-check spike image seed demo scenarios replay replay-break providertest verify tf-validate
 
@@ -54,7 +54,7 @@ spike: .env
 	docker compose --profile spike rm --stop --force temporal-spike; exit $$status
 
 image:
-	docker build --file Dockerfile --tag corridor-fx:local ..
+	docker build --tag corridor-fx:local .
 
 .env:
 	@{ for name in LEDGER_SECRET_CORRIDOR_WORKER LEDGER_SECRET_CORRIDOR_AUDIT LEDGER_SECRET_SEED LEDGER_SECRET_OPERATOR \

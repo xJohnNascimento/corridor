@@ -74,25 +74,27 @@ The decisions behind each choice, with the alternatives considered, are in [`doc
 
 ## Quick start
 
-Prerequisites: Docker, Make, Go 1.27 and OpenSSL. Until the ledger's and Ditto's images and API module are published, the three repositories are built from source and must sit side by side:
-
-```bash
-git clone https://github.com/xJohnNascimento/ledger.git
-```
-
-```bash
-git clone https://github.com/xJohnNascimento/ditto.git
-```
+Prerequisites: Docker, Make, Go and OpenSSL. Clone Corridor alone: the ledger and Ditto run from their published images.
 
 ```bash
 git clone https://github.com/xJohnNascimento/corridor.git
 ```
 
 ```bash
-make -C corridor demo STACK=up-dev
+cd corridor && make demo
 ```
 
-The first run writes random local secrets to `.env` (ignored by git), builds the images, starts the stack, seeds it and runs the [five acts](docs/plan.md#9-the-demo), in about six minutes. Once the images are published, `make demo` pulls them instead. `make down` stops everything and deletes the data.
+The first run writes random local secrets to `.env` (ignored by git), pulls the images, builds Corridor's, starts the stack, seeds it and runs the [five acts](docs/plan.md#9-the-demo), in about six minutes. `make down` stops everything and deletes the data.
+
+To change the ledger or Ditto together with Corridor, clone them next to it and build all three from source with `make demo STACK=up-dev` (or `make up-dev`):
+
+```bash
+git clone https://github.com/xJohnNascimento/ledger.git ../ledger
+```
+
+```bash
+git clone https://github.com/xJohnNascimento/ditto.git ../ditto
+```
 
 ## Try it by hand
 
@@ -164,13 +166,21 @@ Scenarios are listed in [integration, section 6](docs/integration.md#6-integrati
 | Command | Does |
 | --- | --- |
 | `make test` | Unit, property, workflow and integration tests (PostgreSQL in containers), the replay gate, and the verifier's own tests |
-| `make lint` | golangci-lint on all three Go modules, `workflowcheck`, the verifier's import guard and actionlint |
+| `make lint` | golangci-lint on all three Go modules, `workflowcheck`, the verifier's import guard, actionlint and shellcheck |
 | `make scenarios VERIFY=1` | Every scenario against the running stack, with the verifier after each; `ONLY=S12` picks some |
 | `make verify` | V1–V11 against the running stack |
 | `make replay-break` | Shows the replay gate failing an unversioned workflow change and passing the same change behind `GetVersion` |
 | `make proto`, `make tf-validate` | Regenerates the API code; validates and lints the Terraform without cloud credentials |
 
-CI runs these checks on every pull request (`proto-check` in place of `proto`), including every scenario on a fresh stack. It builds against the ledger and Ditto releases named at the top of [`ci.yml`](.github/workflows/ci.yml) (`LEDGER_REF`, `DITTO_REF`), the ones `compose.yaml` runs; Renovate proposes each new release of either as a pull request.
+CI runs these checks on every pull request (`proto-check` in place of `proto`), including every scenario on a fresh stack of the published images. Corridor builds against the ledger's published API module (`github.com/xJohnNascimento/ledger/api`) and runs the ledger and Ditto images that `compose.yaml` pins by tag and digest; Renovate proposes each new release as a pull request.
+
+To develop against a local ledger checkout instead of the published module, add a workspace. `go.work` is ignored by git:
+
+```bash
+go work init . ./scenarios ./verification ../ledger/api
+```
+
+Delete `go.work` and `go.work.sum` to go back to the published module.
 
 Every pull request carries one label that says what merging it releases: `release: major`, `release: minor`, `release: patch` or `release: none`. Once it merges and CI passes on `main`, the next `vX.Y.Z` is tagged, with GitHub release notes and a multi-architecture image on GitHub Container Registry that carries an SBOM and a cosign signature. A change that breaks the API compared with the last release must be labelled `release: major`, or `release: minor` before 1.0. A `v*` tag pushed by hand still releases, after CI passes.
 

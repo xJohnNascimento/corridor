@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
-	github.com/xJohnNascimento/ledger/api v0.0.0
+	github.com/xJohnNascimento/ledger/api v0.3.1
 	go.temporal.io/api v1.63.5
 	go.temporal.io/sdk v1.50.0
 	go.yaml.in/yaml/v3 v3.0.5
@@ -155,5 +155,3 @@ require (
 	mvdan.cc/xurls/v2 v2.6.0 // indirect
 	pluginrpc.com/pluginrpc v0.5.0 // indirect
 )
-
-replace github.com/xJohnNascimento/ledger/api => ../ledger/api

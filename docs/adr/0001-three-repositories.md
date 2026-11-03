@@ -10,6 +10,6 @@ Status: accepted (2026-11-02)
 
 - Service ownership and versioned contracts are visible, as they are between real teams.
 - A cross-repository change becomes a release followed by a version bump, which is slower than one pull request; `buf breaking` in the ledger and the provider contract suite in Corridor catch incompatible changes.
-- Before the first releases exist, a Compose override builds the images from sibling checkouts.
+- A Compose override builds the images from sibling checkouts, for work that spans repositories.
 
 **Alternatives considered.** One repository with three projects (one clone and atomic changes, but it hides service ownership and contract versioning); three repositories plus an umbrella repository for the integration (one more repository to explain, for no extra separation that matters here).

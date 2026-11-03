@@ -14,10 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-env:
-  # renovate: datasource=github-tags depName=xJohnNascimento/ledger
-  LEDGER_REF: v0.3.0
-
 jobs:
   release-label:
     runs-on: ubuntu-latest
@@ -42,24 +38,14 @@ jobs:
     needs: release-label
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: corridor
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: corridor
           fetch-depth: 0
-      # go tool resolves the ledger API module from its sibling checkout, as every Go job does.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: xJohnNascimento/ledger
-          ref: ${{ env.LEDGER_REF }}
-          path: ledger
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: corridor/go.mod
-          cache-dependency-path: corridor/go.sum
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
       - name: buf breaking against the last release
         env:
           BUMP: ${{ needs.release-label.outputs.bump }}

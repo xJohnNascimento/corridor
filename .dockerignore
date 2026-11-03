@@ -1,0 +1,11 @@
+*
+!go.mod
+!go.sum
+!api
+!cmd
+!internal
+!migrations
+!deploy/config.yaml
+api/proto
+**/*_test.go
+**/.env

@@ -6,3 +6,5 @@
 /scenarios/scenarios
 /verification/verify
 backend.hcl
+go.work
+go.work.sum

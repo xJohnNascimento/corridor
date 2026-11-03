@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	connectrpc.com/connect v1.21.1
 	github.com/xJohnNascimento/corridor v0.0.0
-	github.com/xJohnNascimento/ledger/api v0.0.0
+	github.com/xJohnNascimento/ledger/api v0.3.1
 	go.temporal.io/api v1.63.5
 	go.temporal.io/sdk v1.50.0
 	google.golang.org/protobuf v1.36.12
@@ -36,7 +36,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	github.com/xJohnNascimento/corridor => ../
-	github.com/xJohnNascimento/ledger/api => ../../ledger/api
-)
+replace github.com/xJohnNascimento/corridor => ../
