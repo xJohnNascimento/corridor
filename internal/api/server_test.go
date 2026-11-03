@@ -309,6 +309,25 @@ func TestTheQuoteBudgetAndTheProvidersRetryAfter(t *testing.T) {
 	}
 }
 
+func TestAProviderQuoteTooShortToBookRefusesItsKeyForGood(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	h.provider.ttl = 40 * time.Second
+	for range 2 {
+		_, err := h.quote("acme", "short", "CAD", "USD", "1000000")
+		if reasonOf(err) != corridorv1.ErrorReason_ERROR_REASON_QUOTE_EXPIRED {
+			t.Fatalf("a provider quote that expires inside the booking margin: %v", err)
+		}
+	}
+	if h.provider.quoteCalls != 1 {
+		t.Fatalf("%d provider calls, want 1: the refused key is answered from its command", h.provider.quoteCalls)
+	}
+	h.provider.ttl = time.Minute
+	if _, err := h.quote("acme", "fresh", "CAD", "USD", "1000000"); err != nil {
+		t.Fatalf("a new key: %v", err)
+	}
+}
+
 func TestAReplayOfAFrozenQuoteDoesNotSpendTheBudget(t *testing.T) {
 	t.Parallel()
 	h := newHarness(t)

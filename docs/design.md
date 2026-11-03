@@ -141,7 +141,7 @@ Connect-go (gRPC and HTTP/JSON), package `corridor.v1`, in `api/corridor/v1/`, c
 | `validation_failed` | invalid_argument | A field breaks its rule, or the Idempotency-Key is missing |
 | `idempotency_mismatch` | invalid_argument | The key was already used with a different body |
 | `amount_out_of_range`, `corridor_disabled` | failed_precondition | Outside the corridor's limits, or the pair is not enabled |
-| `quote_expired` | failed_precondition | The quote's 30 s have passed |
+| `quote_expired` | failed_precondition | The quote's 30 s have passed; or, for CreateQuote, the provider's quote for the key expires too soon to book, which no retry of that key can change: request a new quote with a new key |
 | `quote_used` | already_exists | Another payment used the quote; the details carry its id |
 | `not_found` | not_found | Unknown id, or another customer's resource |
 | `unauthenticated` | unauthenticated | Missing or unknown credential, or a customer key on the internal port |
