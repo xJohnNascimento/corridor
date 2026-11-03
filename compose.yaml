@@ -72,7 +72,7 @@ services:
       test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
 
   ledger-migrate:
-    image: ghcr.io/xjohnnascimento/ledger:0.3.1@sha256:f0d52333555587b7f7559b5157a121821801968a1369c177c79bc72c64ffc8e8
+    image: ghcr.io/xjohnnascimento/ledger:1.0.0@sha256:b30cf26006cffb7af5664913b80cb1ddcffa48c19bc6c84c1cc900f3cb663b1a
     command: ["migrate"]
     environment:
       LEDGER_DATABASE_URL: postgres://postgres@postgres:5432/ledger?sslmode=disable
@@ -81,7 +81,7 @@ services:
         condition: service_healthy
 
   ledger:
-    image: ghcr.io/xjohnnascimento/ledger:0.3.1@sha256:f0d52333555587b7f7559b5157a121821801968a1369c177c79bc72c64ffc8e8
+    image: ghcr.io/xjohnnascimento/ledger:1.0.0@sha256:b30cf26006cffb7af5664913b80cb1ddcffa48c19bc6c84c1cc900f3cb663b1a
     command: ["serve"]
     environment:
       LEDGER_DATABASE_URL: postgres://ledger_app@postgres:5432/ledger?sslmode=disable
@@ -103,7 +103,7 @@ services:
       test: ["CMD", "/ledger", "healthcheck"]
 
   ditto-migrate:
-    image: ghcr.io/xjohnnascimento/ditto:0.4.0@sha256:10916f9190df0eac6e75e21caa70c5beb17b990ce95395d096598d0ba8adcb18
+    image: ghcr.io/xjohnnascimento/ditto:1.0.0@sha256:faa66ed22bfa4980c025db3699441cc53fc66ba1235b4b0b3fe1364e6f93206a
     command: ["migrate"]
     environment:
       DITTO_DATABASE_URL: postgres://postgres@postgres:5432/ditto?sslmode=disable
@@ -112,7 +112,7 @@ services:
         condition: service_healthy
 
   ditto:
-    image: ghcr.io/xjohnnascimento/ditto:0.4.0@sha256:10916f9190df0eac6e75e21caa70c5beb17b990ce95395d096598d0ba8adcb18
+    image: ghcr.io/xjohnnascimento/ditto:1.0.0@sha256:faa66ed22bfa4980c025db3699441cc53fc66ba1235b4b0b3fe1364e6f93206a
     command: ["serve"]
     environment:
       DITTO_PROFILE: local
