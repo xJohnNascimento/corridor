@@ -143,31 +143,13 @@ func (d *Dispatcher) start(ctx context.Context, id uuid.UUID) error {
 }
 
 func (d *Dispatcher) commands(ctx context.Context) (int, error) {
-	rows, err := d.Store.Pool().Query(ctx, `
-		update fx.product_command set lease_until = now() + $2::interval
-		where id in (
-			select id from fx.product_command
-			where delivery_pending and (lease_until is null or lease_until < now())
-			order by lease_until nulls first, received_at limit $1
-			for update skip locked
-		)
-		returning id, subject_id`,
-		laneSize, d.lease().String(),
-	)
+	pendings, err := d.Store.LeaseCommands(ctx, laneSize, d.lease())
 	if err != nil {
 		return 0, err
 	}
-	type pending struct{ command, payment string }
-	pendings, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (pending, error) {
-		var p pending
-		return p, row.Scan(&p.command, &p.payment)
-	})
-	if err != nil {
-		return 0, err
-	}
-	handle(ctx, pendings, func(ctx context.Context, c pending) {
-		if err := d.deliver(ctx, c.payment, c.command); err != nil {
-			slog.WarnContext(ctx, "deliver command", "command", c.command, "error", err)
+	handle(ctx, pendings, func(ctx context.Context, c store.PendingCommand) {
+		if err := d.deliver(ctx, c.PaymentID, c.CommandID); err != nil {
+			slog.WarnContext(ctx, "deliver command", "command", c.CommandID, "error", err)
 		}
 	})
 	return len(pendings), nil
@@ -195,7 +177,7 @@ func (d *Dispatcher) deliver(ctx context.Context, paymentID, commandID string) e
 // Deliver runs the executeCommand Update with the command id as its Update id, so a repeated
 // delivery is answered by the first one.
 func Deliver(ctx context.Context, c client.Client, paymentID, commandID string) (payment.Decision, error) {
-	handle, err := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+	update, err := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
 		WorkflowID:   payment.WorkflowID(paymentID),
 		UpdateID:     commandID,
 		UpdateName:   payment.UpdateExecuteCommand,
@@ -206,39 +188,18 @@ func Deliver(ctx context.Context, c client.Client, paymentID, commandID string) 
 		return payment.Decision{}, err
 	}
 	var decision payment.Decision
-	return decision, handle.Get(ctx, &decision)
+	return decision, update.Get(ctx, &decision)
 }
 
 func (d *Dispatcher) hints(ctx context.Context) (int, error) {
-	rows, err := d.Store.Pool().Query(ctx, `
-		update fx.webhook_inbox set lease_until = now() + $2::interval
-		where (provider, event_id) in (
-			select provider, event_id from fx.webhook_inbox
-			where status = 'PENDING' and (lease_until is null or lease_until < now())
-			order by lease_until nulls first, received_at limit $1
-			for update skip locked
-		)
-		returning provider, event_id, coalesce(reference, ''), coalesce(payload->'data'->>'status', ''),
-		          case when payload->'data'->>'sequence' ~ '^[0-9]{1,9}$' then (payload->'data'->>'sequence')::int else 0 end`,
-		laneSize, d.lease().String(),
-	)
+	pendings, err := d.Store.LeaseHints(ctx, laneSize, d.lease())
 	if err != nil {
 		return 0, err
 	}
-	type row struct {
-		provider string
-		hint     payment.Hint
-	}
-	pendings, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (row, error) {
-		var h row
-		return h, r.Scan(&h.provider, &h.hint.EventID, &h.hint.Reference, &h.hint.Status, &h.hint.Sequence)
-	})
-	if err != nil {
-		return 0, err
-	}
-	handle(ctx, pendings, func(ctx context.Context, h row) {
-		if err := d.signal(ctx, h.provider, h.hint); err != nil {
-			slog.WarnContext(ctx, "signal hint", "event", h.hint.EventID, "error", err)
+	handle(ctx, pendings, func(ctx context.Context, h store.PendingHint) {
+		hint := payment.Hint{EventID: h.EventID, Reference: h.Reference, Status: h.Status, Sequence: h.Sequence}
+		if err := d.signal(ctx, h.Provider, hint); err != nil {
+			slog.WarnContext(ctx, "signal hint", "event", h.EventID, "error", err)
 		}
 	})
 	return len(pendings), nil

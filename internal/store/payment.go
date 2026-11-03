@@ -309,6 +309,69 @@ func (s *Store) LeasePendingStarts(ctx context.Context, limit int, lease time.Du
 	return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
 }
 
+// PendingCommand is a leased command and the payment it is addressed to.
+type PendingCommand struct {
+	CommandID string
+	PaymentID string
+}
+
+// LeaseCommands leases commands waiting for delivery to their workflow, on the same terms as
+// LeasePendingStarts.
+func (s *Store) LeaseCommands(ctx context.Context, limit int, lease time.Duration) ([]PendingCommand, error) {
+	rows, err := s.pool.Query(ctx, `
+		update fx.product_command set lease_until = now() + $2::interval
+		where id in (
+			select id from fx.product_command
+			where delivery_pending and (lease_until is null or lease_until < now())
+			order by lease_until nulls first, received_at limit $1
+			for update skip locked
+		)
+		returning id, subject_id`,
+		limit, lease.String(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (PendingCommand, error) {
+		var c PendingCommand
+		return c, row.Scan(&c.CommandID, &c.PaymentID)
+	})
+}
+
+// PendingHint is a leased webhook inbox row. Status and Sequence come from the event's payload;
+// a sequence that is not a plain number reads as 0.
+type PendingHint struct {
+	Provider  string
+	EventID   string
+	Reference string
+	Status    string
+	Sequence  int
+}
+
+// LeaseHints leases webhook events waiting to be signalled to their workflow, on the same terms as
+// LeasePendingStarts.
+func (s *Store) LeaseHints(ctx context.Context, limit int, lease time.Duration) ([]PendingHint, error) {
+	rows, err := s.pool.Query(ctx, `
+		update fx.webhook_inbox set lease_until = now() + $2::interval
+		where (provider, event_id) in (
+			select provider, event_id from fx.webhook_inbox
+			where status = 'PENDING' and (lease_until is null or lease_until < now())
+			order by lease_until nulls first, received_at limit $1
+			for update skip locked
+		)
+		returning provider, event_id, coalesce(reference, ''), coalesce(payload->'data'->>'status', ''),
+		          case when payload->'data'->>'sequence' ~ '^[0-9]{1,9}$' then (payload->'data'->>'sequence')::int else 0 end`,
+		limit, lease.String(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (PendingHint, error) {
+		var h PendingHint
+		return h, row.Scan(&h.Provider, &h.EventID, &h.Reference, &h.Status, &h.Sequence)
+	})
+}
+
 type Transition struct {
 	Key     string
 	From    []string
