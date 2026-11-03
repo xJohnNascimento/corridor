@@ -22,7 +22,9 @@ Corridor is also where the system comes together: its Compose stack runs all thr
 | Temporal | 7233, UI 8233 | Durable execution; the UI shows every payment's history |
 | PostgreSQL 17 | 5432 | One container, one database per service |
 
-**Status:** v1, the showcase, is complete: every v1 scenario passes with the independent verifier after each. v2 (reconciliation, the watchdog, Continue-As-New, a sandbox deployment) is planned in [`docs/plan.md`](docs/plan.md).
+**Status:** the showcase exists end to end: the three services, every failure path, people in the loop, the independent verifier, the demo and Terraform that validates. Every scenario passes with the verifier after each. Versions are on the [Releases page](https://github.com/xJohnNascimento/corridor/releases).
+
+**Next (v2):** scheduled reconciliation, a runtime watchdog, Continue-As-New at safe boundaries, a gated RESUME decision after a termination and a sandbox deployment, planned in [`docs/plan.md`](docs/plan.md).
 
 ## How a payment works
 
@@ -64,11 +66,10 @@ Every arrow that moves money has a stable business reference, so retries, crashe
 | Updates as durable commands; handlers that never block the workflow; two-person decisions bound to exact evidence | [design, sections 7.2 and 8](docs/design.md#72-signals-updates-and-handlers) |
 | Signals as verified hints from an idempotent webhook inbox | [design, section 9](docs/design.md#9-webhook-inbox-and-dispatcher) |
 | Durable timers: the cancel window and liquidity retries; a cancel and a submission that can never both win | [design, section 6](docs/design.md#6-paymentworkflow) |
-| Activity retries as the polling loop; Continue-As-New at safe boundaries (v2) | [design, section 7](docs/design.md#7-temporal-rules) |
-| Schedules: reconciliation and a runtime watchdog; a gated RESUME after a termination (v2) | [design, section 11](docs/design.md#11-reconciliation-and-watchdog) |
+| Activity retries as the polling loop | [design, section 7](docs/design.md#7-temporal-rules) |
 | Versioning with `GetVersion` and a replay gate in CI | [design, section 7.6](docs/design.md#76-versioning) |
 | Versioned contracts between repositories: a tagged ledger API module, a versioned provider API, a consumer-side provider contract suite | [plan, section 4](docs/plan.md#4-releases-between-repositories) |
-| An independent verifier (V1–V11), 23 scenarios (26 with v2) and checker-negative fixtures | [integration, sections 5–7](docs/integration.md#5-independent-verifier) |
+| An independent verifier (V1–V11), 23 scenarios and checker-negative fixtures | [integration, sections 5–7](docs/integration.md#5-independent-verifier) |
 
 The decisions behind each choice, with the alternatives considered, are in [`docs/adr/`](docs/adr/README.md). What the system deliberately does not claim is in [integration, section 8](docs/integration.md#8-claims-this-system-does-not-make).
 
@@ -220,3 +221,7 @@ The conventions behind it are in [design, section 14](docs/design.md#14-code-lay
 | [`docs/adr/`](docs/adr/README.md) | Architecture decisions |
 | [`docs/spike.md`](docs/spike.md) | What the Temporal spike checked on the pinned SDK |
 | [`infra/README.md`](infra/README.md) | The shared sandbox foundation and Corridor's own deployment |
+
+## License
+
+[MIT](LICENSE)

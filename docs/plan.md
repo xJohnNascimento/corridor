@@ -1,6 +1,6 @@
 # Work plan
 
-What to build across the three repositories, in which order, and how a reviewer checks each piece. There are no dates. Every milestone ends with something that runs, and every task has a "done when" that can be checked.
+What to build across the three repositories, in which order, and how each piece is checked. There are no dates. Every milestone ends with something that runs, and every task has a "done when" that can be checked.
 
 | Repository | Design | Its tasks |
 | --- | --- | --- |
@@ -12,15 +12,13 @@ A task starts when everything in its "depends on" column is done. A task is done
 
 ## 1. Release cut
 
-The first published version is the one a reviewer sees, so it is defined up front and kept small enough to finish.
-
-| Version | Contains | Scenarios | A reviewer gets | Status |
+| Version | Contains | Scenarios | Outcome | Status |
 | --- | --- | --- | --- | --- |
 | **v1, the showcase** | M0–M4: the three services, every failure path, people in the loop, the verifier, the demo, and Terraform that validates | 23: S01–S21, S24, S25 | `make demo` end to end, `make verify`, every claim in the README backed by a scenario | Done |
 | **v2, hardening** | M5: the RETRY_STEP and RESUME decisions, scheduled reconciliation, the runtime watchdog, Continue-As-New, the full scenario runner with the concurrency suite and the evidence bundle, one sandbox deployment | +3: S22, S23, S26 | Outage and termination drills, a release evidence bundle, a deployment record | Not started |
 | **Stretch** | M6: the console, the observability profile, the ledger benchmark | none | A visual walkthrough, traces, a measured ceiling | Not started |
 
-Release tags are cut when the repositories are published; until then `make up-dev` builds the ledger and Ditto from their checkouts. Nothing in v1 depends on v2. If time runs out after v1, the showcase is complete; v2 and the stretch items are described in the documents as next steps.
+Nothing in v1 depends on v2.
 
 ## 2. Toolchain
 
@@ -95,7 +93,7 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
 | L0, D0 | The ledger and Ditto repositories, toolchains, CI and release pipelines (their plans) | Each publishes a `v0.0.1` image | none |
-| C0 | This repository: the root Go module with the full API contract (`api/proto/corridor/v1`) linted and generated (the `verification` and `scenarios` modules arrive with P2 and P1), Makefile, `compose.yaml` and `compose.dev.yaml`, GitHub Actions (lint, unit, integration, image build; release images on tags), `depguard` rules, Renovate, README stub, and a Temporal spike (`make spike`) that checks on the pinned SDK every behaviour the design relies on: Update-With-Start with a bounded waiting handler, validator rejections leaving no history, activity retries adding no history, `GetContinueAsNewSuggested`, `TaskQueueActivitiesPerSecond` across workers, `AllHandlersFinished`, `IsCanceledError` with disconnected cleanup, ID reuse policies | A pull request runs green; `make up-dev` reports every service healthy, and `make up` does once the `v0.0.1` images are published; the spike's results are recorded in [`spike.md`](spike.md); branches with a forbidden import, a missing status case and `time.Now` in workflow code each fail lint | L0, D0 |
+| C0 | This repository: the root Go module with the full API contract (`api/proto/corridor/v1`) linted and generated (the `verification` and `scenarios` modules arrive with P2 and P1), Makefile, `compose.yaml` and `compose.dev.yaml`, GitHub Actions (lint, unit, integration, image build; release images on tags), `depguard` rules, Renovate, README stub, and a Temporal spike (`make spike`) that checks on the pinned SDK every behaviour the design relies on: Update-With-Start with a bounded waiting handler, validator rejections leaving no history, activity retries adding no history, `GetContinueAsNewSuggested`, `TaskQueueActivitiesPerSecond` across workers, `AllHandlersFinished`, `IsCanceledError` with disconnected cleanup, ID reuse policies | A pull request runs green; `make up-dev` and `make up` report every service healthy; the spike's results are recorded in [`spike.md`](spike.md); branches with a forbidden import, a missing status case and `time.Now` in workflow code each fail lint | L0, D0 |
 
 ### M1. Walking skeleton: one payment end to end (v1)
 
@@ -136,7 +134,7 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 | I1, I2, L6, D5 | Terraform for the foundation, Corridor's services and the Temporal Cloud namespace, the ledger and Ditto ([`infra/README.md`](../infra/README.md) and theirs) | `terraform validate` and `tflint` pass in every repository's CI without cloud credentials | C0, L0, D0 |
 | P4 | `make demo`, the reviewer tour in the README, runbooks for every alert and review reason, and the READMEs of all three repositories | The demo runs end to end on a clean machine in under 10 minutes; every claim in the README's tour links to its scenario; every alert links to its runbook | P2 |
 
-**Exit (v1):** a reviewer can clone `corridor`, run `make demo`, and check every claim in the README.
+**Exit (v1):** anyone can clone `corridor`, run `make demo`, and check every claim in the README.
 
 ### M5. Hardening (v2)
 
@@ -204,7 +202,3 @@ The ledger's reservations (L3) and Ditto's trades and payouts (D2) gate the walk
 3. **People in the loop.** A payout whose status API never confirms: a NOT_PAID proposal refused by the provider's fence, then PAID from the statement line, approved by a second operator.
 4. **Proof.** `make verify` prints V1–V11 PASS; a corrupted fixture makes it fail on the right invariant.
 5. **Versioning.** `make replay-break`: red without `GetVersion`, green with it.
-
-## 10. Before publishing
-
-- Check that no real credential, key or customer data was ever committed, in any of the three histories.
