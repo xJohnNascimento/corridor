@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/xJohnNascimento/corridor/internal/pgtest"
+	"github.com/xJohnNascimento/corridor/internal/store"
 	"github.com/xJohnNascimento/corridor/migrations"
 )
 
@@ -103,5 +104,28 @@ func requireVerifies(t *testing.T, verifier, password string) {
 	}
 	if !bytes.Equal(gotServer, mac("Server Key")) {
 		t.Fatal("the server key does not match the password")
+	}
+}
+
+func TestPaymentReviewReasonConstraintAllowsExactlyTheGoReasons(t *testing.T) {
+	owner := pgtest.NewDatabase(t).Owner
+	var definition string
+	err := owner.QueryRow(context.Background(),
+		"select pg_get_constraintdef(oid) from pg_constraint where conname = 'payment_review_reason_check'",
+	).Scan(&definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reasons := []store.ReviewReason{
+		store.ReviewFillOutOfTolerance, store.ReviewPayoutUnconfirmed, store.ReviewConflictingProviderEvidence,
+		store.ReviewProviderContractBreach, store.ReviewLedgerUnexpected, store.ReviewRecoveryRequired,
+	}
+	if got := strings.Count(definition, "::text"); got != len(reasons) {
+		t.Fatalf("the constraint lists %d reasons, want %d: %s", got, len(reasons), definition)
+	}
+	for _, reason := range reasons {
+		if !strings.Contains(definition, "'"+string(reason)+"'") {
+			t.Errorf("the constraint does not allow %s: %s", reason, definition)
+		}
 	}
 }

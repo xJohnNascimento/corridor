@@ -281,19 +281,19 @@ func TestThePollHorizonOpensAReviewWithTheReservationIntact(t *testing.T) {
 }
 
 func TestAContractBreachWhilePollingOpensTheBreachReviewNotTheHorizon(t *testing.T) {
-	var reasons []string
+	var reasons []payment.ReviewReason
 	breach := errors.New("the provider answered another payout")
 	f := newFlow(t, payment.Converted, map[string]stub{
 		"PollPayout": {err: temporal.NewNonRetryableApplicationError(breach.Error(), payment.ErrorContractBreach, breach)},
-		"OpenReview": {value: func(_ context.Context, _, reason string) error {
+		"OpenReview": {value: func(_ context.Context, _ string, reason payment.ReviewReason) error {
 			reasons = append(reasons, reason)
 			return nil
 		}},
 	})
 	f.RegisterDelayedCallback(func() {}, time.Hour)
 	f.run()
-	if len(reasons) != 1 || reasons[0] != payment.ErrorContractBreach {
-		t.Fatalf("reviews opened for %v, want %s", reasons, payment.ErrorContractBreach)
+	if len(reasons) != 1 || reasons[0] != payment.ReviewProviderContractBreach {
+		t.Fatalf("reviews opened for %v, want %s", reasons, payment.ReviewProviderContractBreach)
 	}
 	f.require(map[string]int{"CommitPayout": 0, "ReturnPayout": 0})
 	f.requireInReview(payment.PayingOut)
@@ -375,13 +375,13 @@ func TestATradeSubmissionThatTimesOutIsResolvedByReference(t *testing.T) {
 }
 
 func TestAHintThatDoesNotMatchTheProviderOpensAReviewInsteadOfMovingMoney(t *testing.T) {
-	var reasons []string
+	var reasons []payment.ReviewReason
 	f := newFlow(t, payment.Converted, map[string]stub{
 		"PollPayout": {err: temporal.NewApplicationError("still processing", payment.ErrorPayoutProcessing)},
 		"VerifyPayout": {value: func(context.Context, string, payment.Hint) (payment.PayoutOutcome, error) {
 			return payment.PayoutOutcome{Status: "COMPLETED", Matches: false, EvidenceID: "e-1"}, nil
 		}},
-		"OpenReview": {value: func(_ context.Context, _, reason string) error {
+		"OpenReview": {value: func(_ context.Context, _ string, reason payment.ReviewReason) error {
 			reasons = append(reasons, reason)
 			return nil
 		}},
@@ -391,7 +391,7 @@ func TestAHintThatDoesNotMatchTheProviderOpensAReviewInsteadOfMovingMoney(t *tes
 	}, 30*time.Second)
 	f.RegisterDelayedCallback(func() {}, time.Hour)
 	f.run()
-	if len(reasons) != 1 || reasons[0] != "CONFLICTING_PROVIDER_EVIDENCE" {
+	if len(reasons) != 1 || reasons[0] != payment.ReviewConflictingProviderEvidence {
 		t.Fatalf("reviews opened for %v, want CONFLICTING_PROVIDER_EVIDENCE", reasons)
 	}
 	f.require(map[string]int{"VerifyPayout": 1, "CommitPayout": 0, "ReturnPayout": 0})
@@ -416,12 +416,12 @@ func TestAHintWhoseReadBackKeepsFailingDoesNotHoldBackThePollHorizon(t *testing.
 		f        *flow
 		start    time.Time
 		reviewAt = -time.Second
-		reasons  []string
+		reasons  []payment.ReviewReason
 	)
 	f = newFlow(t, payment.Converted, map[string]stub{
 		"PollPayout":   {err: temporal.NewApplicationError("still processing", payment.ErrorPayoutProcessing)},
 		"VerifyPayout": {err: errors.New("the provider is unavailable")},
-		"OpenReview": {value: func(_ context.Context, _, reason string) error {
+		"OpenReview": {value: func(_ context.Context, _ string, reason payment.ReviewReason) error {
 			reasons = append(reasons, reason)
 			reviewAt = f.Now().Sub(start)
 			return nil
@@ -433,7 +433,7 @@ func TestAHintWhoseReadBackKeepsFailingDoesNotHoldBackThePollHorizon(t *testing.
 	}, 30*time.Second)
 	f.RegisterDelayedCallback(func() {}, 10*time.Minute)
 	f.run()
-	if len(reasons) != 1 || reasons[0] != "PAYOUT_UNCONFIRMED" {
+	if len(reasons) != 1 || reasons[0] != payment.ReviewPayoutUnconfirmed {
 		t.Fatalf("reviews opened for %v, want PAYOUT_UNCONFIRMED (workflow error: %v)", reasons, f.GetWorkflowError())
 	}
 	if reviewAt < 0 || reviewAt > 3*time.Minute {

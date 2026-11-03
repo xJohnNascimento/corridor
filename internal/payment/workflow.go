@@ -195,10 +195,10 @@ func (s *state) convert(ctx workflow.Context) error {
 	switch out.Status {
 	case provider.TradeFilled:
 		if !out.Matches {
-			return s.openReview(ctx, ErrorContractBreach)
+			return s.openReview(ctx, ReviewProviderContractBreach)
 		}
 		if !(pricing.Tolerance{Bps: s.in.Policy.FillToleranceBps}).Within(s.in.Quote.ProviderBuy, out.Delivered) {
-			return s.openReview(ctx, "FILL_OUT_OF_TOLERANCE")
+			return s.openReview(ctx, ReviewFillOutOfTolerance)
 		}
 		return s.step(ctx, acts.CommitConversion, out.Delivered, Converted)
 	case provider.TradeRejected, provider.TradeClosed:
@@ -295,7 +295,7 @@ func (s *state) reservePayout(ctx workflow.Context) error {
 			}
 			s.snap.PayoutStatus = WaitingFunds
 		case r.Refused:
-			return s.openReview(ctx, ErrorLedgerUnexpected)
+			return s.openReview(ctx, ReviewLedgerUnexpected)
 		default:
 			var releaseAt time.Time
 			if err := workflow.ExecuteActivity(s.db(ctx), acts.SetReleaseTime, s.in.PaymentID).Get(ctx, &releaseAt); err != nil {
@@ -404,14 +404,14 @@ func (s *state) settle(ctx workflow.Context) error {
 			return s.applyPayoutEvidence(ctx, *evidence)
 		case horizon:
 			cancelReads()
-			return s.openReview(ctx, "PAYOUT_UNCONFIRMED")
+			return s.openReview(ctx, ReviewPayoutUnconfirmed)
 		}
 	}
 }
 
 func (s *state) applyPayoutEvidence(ctx workflow.Context, ev PayoutOutcome) error {
 	if !ev.Matches {
-		return s.openReview(ctx, "CONFLICTING_PROVIDER_EVIDENCE")
+		return s.openReview(ctx, ReviewConflictingProviderEvidence)
 	}
 	if ev.Status == provider.PayoutCompleted {
 		return s.step(ctx, acts.CommitPayout, ev, Completed)
@@ -457,12 +457,12 @@ func isContractBreach(err error) bool {
 func (s *state) reviewOn(ctx workflow.Context, err error) error {
 	var app *temporal.ApplicationError
 	if errors.As(err, &app) && (app.Type() == ErrorLedgerUnexpected || app.Type() == ErrorContractBreach) {
-		return s.openReview(ctx, app.Type())
+		return s.openReview(ctx, ReviewReason(app.Type()))
 	}
 	return err
 }
 
-func (s *state) openReview(ctx workflow.Context, reason string) error {
+func (s *state) openReview(ctx workflow.Context, reason ReviewReason) error {
 	if err := workflow.ExecuteActivity(s.db(ctx), acts.OpenReview, s.in.PaymentID, reason).Get(ctx, nil); err != nil {
 		return err
 	}

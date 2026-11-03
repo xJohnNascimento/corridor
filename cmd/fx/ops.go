@@ -156,7 +156,7 @@ func captureEvidence(ctx context.Context, kind, payment string) error {
 		payload                                                    any
 	)
 	switch {
-	case kind == "read" && s.Reason == "FILL_OUT_OF_TOLERANCE":
+	case kind == "read" && s.Reason == store.ReviewFillOutOfTolerance:
 		trade, err := ditto.Trade(ctx, payment)
 		if err != nil {
 			return err

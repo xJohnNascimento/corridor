@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/xJohnNascimento/corridor/internal/config"
+	"github.com/xJohnNascimento/corridor/internal/store"
 )
 
 const (
@@ -14,11 +15,24 @@ const (
 	UpdateExecuteCommand  = "executeCommand"
 	SignalProviderHint    = "providerHint"
 
-	ErrorLedgerUnexpected   = "LEDGER_UNEXPECTED"
-	ErrorContractBreach     = "PROVIDER_CONTRACT_BREACH"
+	ErrorLedgerUnexpected   = string(ReviewLedgerUnexpected)
+	ErrorContractBreach     = string(ReviewProviderContractBreach)
 	ErrorPayoutProcessing   = "PAYOUT_PROCESSING"
 	ErrorTransitionConflict = "TRANSITION_CONFLICT"
 	ErrorInvalidArgument    = "INVALID_ARGUMENT"
+)
+
+// ReviewReason is why a payment is in review. Each reason is also an error type, so a failed
+// activity that opens a review carries its own reason.
+type ReviewReason = store.ReviewReason
+
+const (
+	ReviewFillOutOfTolerance          = store.ReviewFillOutOfTolerance
+	ReviewPayoutUnconfirmed           = store.ReviewPayoutUnconfirmed
+	ReviewConflictingProviderEvidence = store.ReviewConflictingProviderEvidence
+	ReviewProviderContractBreach      = store.ReviewProviderContractBreach
+	ReviewLedgerUnexpected            = store.ReviewLedgerUnexpected
+	ReviewRecoveryRequired            = store.ReviewRecoveryRequired
 )
 
 func WorkflowID(paymentID string) string {
@@ -55,7 +69,7 @@ type Snapshot struct {
 	Attempt           int
 	TradeStatus       string
 	CancelCommandID   string
-	ReviewReason      string
+	ReviewReason      ReviewReason
 	ReleaseAt         *time.Time
 	DeliveredAmount   int64
 	SubmissionStarted bool

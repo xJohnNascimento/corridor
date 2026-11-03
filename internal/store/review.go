@@ -15,11 +15,24 @@ import (
 	"github.com/xJohnNascimento/corridor/internal/provider"
 )
 
+// ReviewReason is why a payment is in review. It is defined here, below the payment package that
+// re-exports it, because the store checks proposals against it and cannot import that package.
+type ReviewReason string
+
+const (
+	ReviewFillOutOfTolerance          ReviewReason = "FILL_OUT_OF_TOLERANCE"
+	ReviewPayoutUnconfirmed           ReviewReason = "PAYOUT_UNCONFIRMED"
+	ReviewConflictingProviderEvidence ReviewReason = "CONFLICTING_PROVIDER_EVIDENCE"
+	ReviewProviderContractBreach      ReviewReason = "PROVIDER_CONTRACT_BREACH"
+	ReviewLedgerUnexpected            ReviewReason = "LEDGER_UNEXPECTED"
+	ReviewRecoveryRequired            ReviewReason = "RECOVERY_REQUIRED"
+)
+
 // decisionsByReason lists the decisions each review reason accepts in this release.
-var decisionsByReason = map[string][]string{
-	"FILL_OUT_OF_TOLERANCE":         {"ACCEPT_FILL"},
-	"PAYOUT_UNCONFIRMED":            {"PAID", "NOT_PAID"},
-	"CONFLICTING_PROVIDER_EVIDENCE": {"PAID", "NOT_PAID"},
+var decisionsByReason = map[ReviewReason][]string{
+	ReviewFillOutOfTolerance:          {"ACCEPT_FILL"},
+	ReviewPayoutUnconfirmed:           {"PAID", "NOT_PAID"},
+	ReviewConflictingProviderEvidence: {"PAID", "NOT_PAID"},
 }
 
 type Review struct {
@@ -88,7 +101,7 @@ func refused(reason string) error {
 // openReview is the state of a payment's review and payout that a proposal is checked against.
 type openReview struct {
 	open     bool
-	reason   string
+	reason   ReviewReason
 	revision int
 	payout   string
 	currency string
@@ -163,7 +176,7 @@ func insertProposal(ctx context.Context, tx pgx.Tx, id uuid.UUID, p Proposal) er
 	if err != nil {
 		return err
 	}
-	p.ReviewReason = r.reason
+	p.ReviewReason = string(r.reason)
 	digest := p.digest()
 	if _, err := tx.Exec(ctx, `
 		insert into fx.resolution_proposal (id, payment_id, review_reason, review_revision, decision, subject_kind, subject_id,
@@ -189,7 +202,7 @@ func checkProposal(ctx context.Context, q Querier, p Proposal, r openReview) err
 	case p.ReviewRevision != r.revision:
 		return refused("stale_review_revision")
 	case !slices.Contains(decisionsByReason[r.reason], p.Decision):
-		return refused("decision_not_allowed_for_" + r.reason)
+		return refused("decision_not_allowed_for_" + string(r.reason))
 	}
 	if p.Decision == "ACCEPT_FILL" {
 		if p.SubjectKind != "TRADE" || p.SubjectID != p.PaymentID.String() || p.ProviderReference != p.SubjectID {
@@ -243,7 +256,7 @@ func checkEvidence(ctx context.Context, q Querier, p Proposal, operation, outcom
 
 // ReviewSubject is what a proposal needs to know about a payment and its payout.
 type ReviewSubject struct {
-	Reason   string
+	Reason   ReviewReason
 	Revision int32
 	PayoutID uuid.UUID
 	Currency string

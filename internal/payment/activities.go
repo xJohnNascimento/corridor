@@ -627,7 +627,7 @@ func (a *Activities) ApplyCommand(ctx context.Context, commandID string) error {
 	return err
 }
 
-func (a *Activities) OpenReview(ctx context.Context, paymentID, reason string) error {
+func (a *Activities) OpenReview(ctx context.Context, paymentID string, reason ReviewReason) error {
 	id, err := parseID(paymentID)
 	if err != nil {
 		return err
@@ -642,12 +642,12 @@ func (a *Activities) OpenReview(ctx context.Context, paymentID, reason string) e
 		if err != nil || tag.RowsAffected() == 0 {
 			return err
 		}
-		return store.AddEvent(ctx, tx, id, "REVIEW_OPENED", reason, "CUSTOMER", "review/"+reason)
+		return store.AddEvent(ctx, tx, id, "REVIEW_OPENED", string(reason), "CUSTOMER", "review/"+string(reason))
 	})
 }
 
 func (a *Activities) MarkRecoveryRequired(ctx context.Context, paymentID string) error {
-	return a.OpenReview(ctx, paymentID, "RECOVERY_REQUIRED")
+	return a.OpenReview(ctx, paymentID, ReviewRecoveryRequired)
 }
 
 // end writes a payment's final status and its payout's, in one transaction, after the ledger call
