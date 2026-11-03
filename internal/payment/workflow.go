@@ -21,6 +21,10 @@ const rejectedIsFinal = "payout-rejected-is-final"
 // before it, any poll failure was the horizon.
 const pollBreachReview = "poll-contract-breach-review"
 
+// exactTolerance gates comparing a fill with its quote exactly; before it, the comparison wrapped
+// for an anomalously large fill and booked it.
+const exactTolerance = "fill-tolerance-exact"
+
 // asyncReadBack gates reading a hint back in a separate Activity that the selector races
 // against the poll; before it, the hint's handler waited for the read-back and so held back the
 // poll horizon.
@@ -197,7 +201,7 @@ func (s *state) convert(ctx workflow.Context) error {
 		if !out.Matches {
 			return s.openReview(ctx, ReviewProviderContractBreach)
 		}
-		if !(pricing.Tolerance{Bps: s.in.Policy.FillToleranceBps}).Within(s.in.Quote.ProviderBuy, out.Delivered) {
+		if !s.withinTolerance(ctx, out.Delivered) {
 			return s.openReview(ctx, ReviewFillOutOfTolerance)
 		}
 		return s.step(ctx, acts.CommitConversion, out.Delivered, Converted)
@@ -205,6 +209,22 @@ func (s *state) convert(ctx workflow.Context) error {
 		return s.step(ctx, acts.ReleaseConversion, nil, Expired)
 	}
 	return fmt.Errorf("trade outcome %s has no step", out.Status)
+}
+
+// withinTolerance asks for a version only when the exact comparison and the wrapping one it
+// replaced disagree, so a history that booked an anomalously large fill replays as it ran.
+func (s *state) withinTolerance(ctx workflow.Context, delivered int64) bool {
+	tolerance := pricing.Tolerance{Bps: s.in.Policy.FillToleranceBps}
+	quoted := s.in.Quote.ProviderBuy
+	if tolerance.Within(quoted, delivered) {
+		return true
+	}
+	diff := delivered - quoted
+	if diff < 0 {
+		diff = -diff
+	}
+	wrapped := diff*10_000 <= quoted*tolerance.Bps
+	return wrapped && workflow.GetVersion(ctx, exactTolerance, workflow.DefaultVersion, 1) == workflow.DefaultVersion
 }
 
 func (s *state) tooLateToTrade(ctx workflow.Context) bool {

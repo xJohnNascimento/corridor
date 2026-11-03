@@ -3,6 +3,7 @@ package payment_test
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -195,6 +196,21 @@ func TestFillsAreBookedOrReviewedByTolerance(t *testing.T) {
 		f.run()
 		f.require(map[string]int{"CommitConversion": 0, "OpenReview": 1, "StartPayout": 0})
 		f.requireInReview(payment.Converting)
+	})
+
+	t.Run("an anomalously large fill opens a review rather than booking it", func(t *testing.T) {
+		f := newFlow(t, payment.Admitted, fill(math.MaxInt64, true))
+		f.RegisterDelayedCallback(func() {}, time.Hour)
+		f.run()
+		f.require(map[string]int{"CommitConversion": 0, "OpenReview": 1, "StartPayout": 0})
+		f.requireInReview(payment.Converting)
+	})
+
+	t.Run("a history recorded before the exact comparison still books an anomalously large fill", func(t *testing.T) {
+		f := newFlow(t, payment.Admitted, fill(math.MaxInt64, true))
+		f.OnGetVersion("fill-tolerance-exact", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+		f.run()
+		f.require(map[string]int{"CommitConversion": 1, "OpenReview": 0})
 	})
 
 	t.Run("a fill that does not match its trade is a breach and opens a review", func(t *testing.T) {
