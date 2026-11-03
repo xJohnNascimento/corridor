@@ -296,7 +296,7 @@ func (a *Activities) tradeOutcome(ctx context.Context, paymentID string, req pro
 			return err
 		}
 		_, err = tx.Exec(ctx, `
-			update fx.trade set status = $2, provider_trade_id = nullif($3, ''), delivered_amount = nullif($4, 0), rate_e8 = nullif($5, 0), evidence_id = $6
+			update fx.trade set status = $2, provider_trade_id = nullif($3, ''), delivered_amount = nullif($4::bigint, 0), rate_e8 = nullif($5::bigint, 0), evidence_id = $6
 			where payment_id = $1 and status = 'PENDING'`,
 			paymentID, trade.Status, trade.TradeID, out.Delivered, rate, id,
 		)

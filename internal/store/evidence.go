@@ -47,7 +47,7 @@ func RecordEvidence(ctx context.Context, q Querier, e Evidence) (string, string,
 	err = q.QueryRow(ctx, `
 		with inserted as (
 			insert into fx.provider_evidence (id, source, operation, reference, outcome, currency, amount, sequence, payload, digest, source_identity)
-			values ($1, $2, $3, $4, $5, nullif($6, ''), nullif($7, 0), nullif($8, 0), $9, $10, $11)
+			values ($1, $2, $3, $4, $5, nullif($6, ''), nullif($7::bigint, 0), nullif($8, 0), $9, $10, $11)
 			on conflict (source_identity) do nothing
 			returning id
 		)

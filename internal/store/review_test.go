@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 	"testing"
 
@@ -238,5 +239,42 @@ func TestProposeSettlesItsCommandInTheTransactionThatStoresTheProposal(t *testin
 	wg.Wait()
 	if proposals() != 2 {
 		t.Fatalf("%d proposals after the racing retries, want the settled one and a single new one", proposals())
+	}
+}
+
+func TestAProposalBeyond32BitsIsStoredWithItsEvidence(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	const amount int64 = math.MaxInt32 + 1
+	p := admitted(t, s, "k-1")
+	payout := p.Payout.ID.String()
+	if _, err := s.Pool().Exec(ctx, `
+		update fx.payment set review_open = true, review_reason = 'PAYOUT_UNCONFIRMED', review_revision = 1, review_opened_at = now() where id = $1`, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Pool().Exec(ctx, "update fx.payout set amount = $2 where payment_id = $1", p.ID, amount); err != nil {
+		t.Fatal(err)
+	}
+	evidenceID, digest, err := RecordEvidence(ctx, s.Pool(), Evidence{
+		Source: "READ", Operation: "PAYOUT", Reference: payout, Outcome: "COMPLETED", Currency: "USD", Amount: amount, Payload: map[string]int64{"amount": amount},
+	})
+	if err != nil {
+		t.Fatalf("evidence of %d: %v", amount, err)
+	}
+	cmd, _, err := s.ClaimCommand(ctx, CommandClaim{ActorKind: "OPERATOR", ActorID: "alice", RequestKey: "paid", Operation: "PROPOSE_RESOLUTION", SubjectID: p.ID.String(), Request: "paid"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.Propose(ctx, cmd.ID, Proposal{
+		PaymentID: p.ID, SubjectKind: "PAYOUT", SubjectID: payout, ReviewRevision: 1, Decision: "PAID", ProviderReference: payout,
+		Currency: "USD", Amount: amount, EvidenceID: evidenceID, EvidenceDigest: digest, Maker: "alice",
+	})
+	if err != nil {
+		t.Fatalf("a PAID proposal of %d: %v", amount, err)
+	}
+	var stored int64
+	if err := s.Pool().QueryRow(ctx, "select amount from fx.resolution_proposal where payment_id = $1", p.ID).Scan(&stored); err != nil || stored != amount {
+		t.Fatalf("stored %d (%v), want %d", stored, err, amount)
 	}
 }

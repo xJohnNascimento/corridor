@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sync"
 	"testing"
@@ -65,6 +66,19 @@ func (p answeringProvider) CreatePayout(context.Context, provider.PayoutRequest)
 
 func (p answeringProvider) Payout(context.Context, string) (provider.Payout, error) {
 	return p.payout, nil
+}
+
+// fillingProvider fills every trade it is asked for with one delivered amount.
+type fillingProvider struct {
+	provider.Provider
+	delivered string
+}
+
+func (p fillingProvider) CreateTrade(_ context.Context, req provider.TradeRequest) (provider.Trade, error) {
+	return provider.Trade{
+		TradeID: "t-1", Reference: req.Reference, Status: "FILLED", SellCurrency: req.SellCurrency, BuyCurrency: req.BuyCurrency,
+		SellAmount: req.SellAmount, BuyAmount: p.delivered, RateE8: "73500000",
+	}, nil
 }
 
 type paymentFixture struct {
@@ -373,5 +387,33 @@ func TestAPayoutOutcomeMatchesOnlyWithTheTermsItMustCarry(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAFillOfAnyAmountIsRecordedWithItsEvidence(t *testing.T) {
+	t.Parallel()
+	for _, delivered := range []int64{731325, math.MaxInt32 + 1, math.MaxInt64} {
+		t.Run(fmt.Sprint(delivered), func(t *testing.T) {
+			t.Parallel()
+			f := newPaymentFixture(t)
+			ctx := context.Background()
+			if _, err := f.db.Owner.Exec(ctx, `
+				insert into fx.trade (payment_id, reference, sell_currency, buy_currency, sell_amount, quoted_buy, provider_quote_id)
+				values ($1, $2, 'CAD', 'USD', 995000, 731325, 'pq-1')`, f.payment.ID, f.payment.ID.String()); err != nil {
+				t.Fatal(err)
+			}
+			f.acts.Provider = fillingProvider{delivered: fmt.Sprint(delivered)}
+			out, err := f.acts.SubmitTrade(ctx, f.payment.ID.String())
+			if err != nil || out.Delivered != delivered || !out.Matches {
+				t.Fatalf("outcome %+v, %v; want a matching fill of %d", out, err, delivered)
+			}
+			var stored, evidenced int64
+			err = f.db.Owner.QueryRow(ctx, `
+				select t.delivered_amount, e.amount from fx.trade t join fx.provider_evidence e on e.id = t.evidence_id where t.payment_id = $1`,
+				f.payment.ID).Scan(&stored, &evidenced)
+			if err != nil || stored != delivered || evidenced != delivered {
+				t.Fatalf("stored %d with evidence of %d (%v), want %d", stored, evidenced, err, delivered)
+			}
+		})
 	}
 }
