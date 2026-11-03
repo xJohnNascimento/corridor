@@ -19,6 +19,9 @@ import (
 	"github.com/xJohnNascimento/corridor/internal/store"
 )
 
+// failureAccountClosed is the ISO 20022 return code AC04, closed account number.
+const failureAccountClosed = "AC04"
+
 // Activities are the payment's side effects. Each uses its stable business reference on every
 // attempt, because an effect may have happened even when an attempt timed out.
 type Activities struct {
@@ -555,7 +558,7 @@ func (a *Activities) ReturnPayout(ctx context.Context, paymentID string, ev Payo
 		return ledgerError(err)
 	}
 	reason := "PAYOUT_REJECTED"
-	if ev.FailureCode == "AC04" {
+	if ev.FailureCode == failureAccountClosed {
 		reason = "BENEFICIARY_ACCOUNT_CLOSED"
 	}
 	return a.Store.TransitionPayout(ctx, t.payout.PaymentID, payoutTransition("failed", []PayoutStatus{Submitting, Sent}, Failed, "PAYOUT_FAILED"),

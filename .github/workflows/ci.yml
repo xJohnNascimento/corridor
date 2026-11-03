@@ -42,8 +42,10 @@ jobs:
         run: make verification-imports
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color
+      - name: shellcheck
+        run: docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.11.0 .github/scripts/*.sh
 
-  vulncheck:
+  govulncheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

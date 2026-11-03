@@ -3,6 +3,7 @@ SHELL := bash
 
 GOLANGCI_LINT_VERSION := v2.15.0
 ACTIONLINT_VERSION := 1.7.12
+SHELLCHECK_VERSION := v0.11.0
 TERRAFORM_IMAGE := hashicorp/terraform:1.16.6
 TFLINT_IMAGE := ghcr.io/terraform-linters/tflint:v0.64.0
 GOMODCACHE := $(shell go env GOMODCACHE)
@@ -33,6 +34,7 @@ lint: verification-imports
 	$(call GOLANGCI_LINT,verification)
 	go tool workflowcheck ./...
 	docker run --rm -v "$(CURDIR)":/repo -w /repo rhysd/actionlint:$(ACTIONLINT_VERSION) -color
+	docker run --rm -v "$(CURDIR)":/mnt -w /mnt koalaman/shellcheck:$(SHELLCHECK_VERSION) .github/scripts/*.sh
 
 # The checker proves the system from its exports, so it must not share Corridor's code. The
 # dependency list goes to a file first: a failing go list must fail the check, not pass it.
