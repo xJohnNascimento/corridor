@@ -14,7 +14,7 @@ A task starts when everything in its "depends on" column is done. A task is done
 
 | Version | Contains | Scenarios | Outcome | Status |
 | --- | --- | --- | --- | --- |
-| **v1, the showcase** | M0–M4: the three services, every failure path, people in the loop, the verifier, the demo, and Terraform that validates | 23: S01–S21, S24, S25 | `make demo` end to end, `make verify`, every claim in the README backed by a scenario | Done |
+| **v1, the showcase** | M0–M4: the three services, every failure path, people in the loop, the verifier, the demo, and the Terraform for a disposable AWS test environment | 23: S01–S21, S24, S25 | `make demo` end to end, `make verify`, every claim in the README backed by a scenario | Done |
 | **v2, hardening** | M5: the RETRY_STEP and RESUME decisions, scheduled reconciliation, the runtime watchdog, Continue-As-New, the full scenario runner with the concurrency suite and the evidence bundle, one sandbox deployment | +3: S22, S23, S26 | Outage and termination drills, a release evidence bundle, a deployment record | Not started |
 | **Stretch** | M6: the console, the observability profile, the ledger benchmark | none | A visual walkthrough, traces, a measured ceiling | Not started |
 
@@ -72,19 +72,19 @@ Planned with later milestones: `up-obs` (the observability profile, C6) and `evi
 
 ## 4. Releases between repositories
 
-Corridor pins the ledger's image digest and `ledger/api` module version, and Ditto's image digest and OpenAPI version. Renovate opens a pull request for each new release, and Corridor's CI runs the provider contract suite and the scenarios against it before the bump merges.
+Corridor pins the ledger's image digest and `ledger/api` module version, and Ditto's image digest and OpenAPI version. Renovate opens a pull request for each new release, and Corridor's CI runs the provider contract suite and the scenarios against it before the bump merges. A Corridor task starts on a ledger or Ditto release that contains the task it needs:
 
-| Release | Contains | Needed by |
+| Ledger or Ditto task | Contains | Needed by |
 | --- | --- | --- |
-| ledger `v0.0.1`, ditto `v0.0.1` | Skeletons with health checks (L0, D0) | C0 |
-| ledger `v0.0.2` and `api/v0.0.2` | Accounts and journals (L2) | C1 |
-| ditto `v0.1.0` | Quotes (D1) | C1 |
-| ledger `v0.1.0` and `api/v0.1.0` | Journals and reservations (L3) | P1, C2 |
-| ditto `v0.2.0` | Trades and payouts (D2) | P1, C2 |
-| ditto `v0.3.0` | Fences, webhooks, most faults (D3) | C3 |
-| ditto `v0.4.0` | Statements, review faults (D4) | C4, P2 |
-| ledger `v0.2.0` and `api/v0.2.0` | Reads and the audit export (L4) | P2 |
-| ledger `v0.3.0` and `api/v0.3.0` | Operator scope (L5) | C5 |
+| L0, D0 | Skeletons with health checks | C0 |
+| L2 | Accounts and journals | C1 |
+| D1 | Quotes | C1 |
+| L3 | Journals and reservations | P1, C2 |
+| D2 | Trades and payouts | P1, C2 |
+| D3 | Fences, webhooks, most faults | C3 |
+| D4 | Statements, review faults | C4, P2 |
+| L4 | Reads and the audit export | P2 |
+| L5 | Operator scope | C5 |
 
 ## 5. Milestones
 
@@ -92,17 +92,17 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
-| L0, D0 | The ledger and Ditto repositories, toolchains, CI and release pipelines (their plans) | Each publishes a `v0.0.1` image | none |
+| L0, D0 | The ledger and Ditto repositories, toolchains, CI and release pipelines (their plans) | Each publishes a signed image from a release tag | none |
 | C0 | This repository: the root Go module with the full API contract (`api/proto/corridor/v1`) linted and generated (the `verification` and `scenarios` modules arrive with P2 and P1), Makefile, `compose.yaml` and `compose.dev.yaml`, GitHub Actions (lint, unit, integration, image build; release images on tags), `depguard` rules, Renovate, README stub, and a Temporal spike (`make spike`) that checks on the pinned SDK every behaviour the design relies on: Update-With-Start with a bounded waiting handler, validator rejections leaving no history, activity retries adding no history, `GetContinueAsNewSuggested`, `TaskQueueActivitiesPerSecond` across workers, `AllHandlersFinished`, `IsCanceledError` with disconnected cleanup, ID reuse policies | A pull request runs green; `make up-dev` and `make up` report every service healthy; the spike's results are recorded in [`spike.md`](spike.md); branches with a forbidden import, a missing status case and `time.Now` in workflow code each fail lint | L0, D0 |
 
 ### M1. Walking skeleton: one payment end to end (v1)
 
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
-| L1–L3 | Ledger journals and reservations (its plan) | ledger `v0.1.0` | L0 |
-| D1, D2 | Ditto quotes, trades and payouts (its plan) | ditto `v0.2.0` | D0 |
-| C1 | Schema, money types and pricing; CreateQuote with its command and provider quote; customers (`fx cli customers upsert`, with ledger accounts in every enabled currency), operators, authentication and tenancy | The worked example prices exactly; another customer's quote answers `not_found`; concurrent same-key quotes create one provider quote | C0, ledger `v0.0.2`, ditto `v0.1.0` |
-| P1 | Seed manifest (four currencies, provider cash, demo customers) and the scenario runner skeleton with per-scenario customers | `make seed` makes the ledger's provider cash equal Ditto's balance in every currency; `make scenarios ONLY=S01` runs | C1, ledger `v0.1.0`, ditto `v0.2.0` |
+| L1–L3 | Ledger journals and reservations (its plan) | Released (its plan) | L0 |
+| D1, D2 | Ditto quotes, trades and payouts (its plan) | Released (its plan) | D0 |
+| C1 | Schema, money types and pricing; CreateQuote with its command and provider quote; customers (`fx cli customers upsert`, with ledger accounts in every enabled currency), operators, authentication and tenancy | The worked example prices exactly; another customer's quote answers `not_found`; concurrent same-key quotes create one provider quote | C0, L2, D1 |
+| P1 | Seed manifest (four currencies, provider cash, demo customers) and the scenario runner skeleton with per-scenario customers | `make seed` makes the ledger's provider cash equal Ditto's balance in every currency; `make scenarios ONLY=S01` runs | C1, L3, D2 |
 | C2 | Admission (payment and PLANNED payout, Update-With-Start fast path), the dispatcher's start loop, PaymentWorkflow happy path (conversion, payout with polling), retry-safe transitions, reads, the failpoint framework, the replay corpus, the CI replay gate and `make replay-break` | S01 passes for every enabled corridor; S06, S07 and S25 pass; reads work with the worker stopped | C1, P1 |
 
 **Exit:** `make up && make seed && make scenarios ONLY=S01` passes for every enabled corridor, and the replay gate runs on every pull request.
@@ -111,8 +111,8 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
-| D3 | Ditto fences, webhooks and faults (its plan) | ditto `v0.3.0` | D2 |
-| C3 | Trade resolution and close; fill differences within tolerance; payout rejection and failure returns; customer commands (`RequestCancel`, `GetCommand`, the dispatcher's command loop, `executeCommand` with `DecideCommand`) and cancellation at every payout state; the webhook inbox and hint verification; liquidity waits and attempts; failpoints in the ledger adapter; `providertest` against the pinned Ditto | S02, S03, S04, S05, S08, S09, S10, S11, S12, S13, S14, S15 and S16 pass | C2, ditto `v0.3.0` |
+| D3 | Ditto fences, webhooks and faults (its plan) | Released (its plan) | D2 |
+| C3 | Trade resolution and close; fill differences within tolerance; payout rejection and failure returns; customer commands (`RequestCancel`, `GetCommand`, the dispatcher's command loop, `executeCommand` with `DecideCommand`) and cancellation at every payout state; the webhook inbox and hint verification; liquidity waits and attempts; failpoints in the ledger adapter; `providertest` against the pinned Ditto | S02, S03, S04, S05, S08, S09, S10, S11, S12, S13, S14, S15 and S16 pass | C2, D3 |
 
 **Exit:** every scenario that needs no human decision passes.
 
@@ -120,8 +120,8 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
-| D4 | Ditto statements and the remaining faults (its plan) | ditto `v0.4.0` | D3 |
-| C4 | Operator authentication; proposals and approvals with evidence binding; the ACCEPT_FILL, PAID and NOT_PAID decisions; `fx cli ops` | S17, S18, S19, S20 and S21 pass; FILL_OUT_OF_TOLERANCE, PAYOUT_UNCONFIRMED and CONFLICTING_PROVIDER_EVIDENCE can be resolved from the CLI; every attempt, accepted or refused, is recorded | C3, ditto `v0.4.0` |
+| D4 | Ditto statements and the remaining faults (its plan) | Released (its plan) | D3 |
+| C4 | Operator authentication; proposals and approvals with evidence binding; the ACCEPT_FILL, PAID and NOT_PAID decisions; `fx cli ops` | S17, S18, S19, S20 and S21 pass; FILL_OUT_OF_TOLERANCE, PAYOUT_UNCONFIRMED and CONFLICTING_PROVIDER_EVIDENCE can be resolved from the CLI; every attempt, accepted or refused, is recorded | C3, D4 |
 
 **Exit:** both operators can resolve, from the CLI, every review that a v1 scenario raises.
 
@@ -129,8 +129,8 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
-| L4, L5 | Ledger reads, audit export and operator scope (its plan) | ledger `v0.2.0` (L4) and `v0.3.0` (L5) | L3 |
-| P2 | The `verification` module (V1–V11 as pure functions over the three exports and the Temporal descriptions, INCOMPLETE handling, reports, checker-negative fixtures); Corridor's `ExportSnapshot` with the `fx_audit` role; `make verify` | Each corrupted fixture fails its intended invariant (S24); a truncated statement gives INCOMPLETE; `make verify` passes on the live stack after every v1 scenario | C4, ledger `v0.2.0`, ditto `v0.4.0` |
+| L4, L5 | Ledger reads, audit export and operator scope (its plan) | Released (its plan) | L3 |
+| P2 | The `verification` module (V1–V11 as pure functions over the three exports and the Temporal descriptions, INCOMPLETE handling, reports, checker-negative fixtures); Corridor's `ExportSnapshot` with the `fx_audit` role; `make verify` | Each corrupted fixture fails its intended invariant (S24); a truncated statement gives INCOMPLETE; `make verify` passes on the live stack after every v1 scenario | C4, L4, D4 |
 | I1, I2, L6, D5 | Terraform for the foundation, Corridor's services and the Temporal Cloud namespace, the ledger and Ditto ([`infra/README.md`](../infra/README.md) and theirs) | `terraform validate` and `tflint` pass in every repository's CI without cloud credentials | C0, L0, D0 |
 | P4 | `make demo`, the reviewer tour in the README, runbooks for every alert and review reason, and the READMEs of all three repositories | The demo runs end to end on a clean machine in under 10 minutes; every claim in the README's tour links to its scenario; every alert links to its runbook | P2 |
 
@@ -140,7 +140,7 @@ Corridor pins the ledger's image digest and `ledger/api` module version, and Dit
 
 | Id | Task | Done when | Depends on |
 | --- | --- | --- | --- |
-| C5 | The RETRY_STEP and RESUME decisions; ReconciliationWorkflow on its Schedule; findings; the watchdog raising RECOVERY_REQUIRED; Continue-As-New at safe boundaries | S22, S23 (with RESUME) and S26 pass; workflow tests cover RETRY_STEP for PROVIDER_CONTRACT_BREACH and LEDGER_UNEXPECTED; a planted mismatch becomes one finding across runs; a `CONTRADICTORY_FINAL_HINT` after completion opens one finding | P4, ledger `v0.3.0` |
+| C5 | The RETRY_STEP and RESUME decisions; ReconciliationWorkflow on its Schedule; findings; the watchdog raising RECOVERY_REQUIRED; Continue-As-New at safe boundaries | S22, S23 (with RESUME) and S26 pass; workflow tests cover RETRY_STEP for PROVIDER_CONTRACT_BREACH and LEDGER_UNEXPECTED; a planted mismatch becomes one finding across runs; a `CONTRADICTORY_FINAL_HINT` after completion opens one finding | P4, L5 |
 | P3 | The full scenario runner with the verifier after every scenario, the concurrency suite, `make evidence` | S01–S26 pass in CI with V1–V11 after each; the bundle lists any NOT RUN item | C5 |
 | I3 | One sandbox deployment: apply the foundation, then the ledger and Ditto, then Corridor; run the seed and S01 as one-off ECS tasks inside the VPC; record the evidence; destroy in reverse order | The evidence is committed | P4, I1, I2, L6, D5 |
 
