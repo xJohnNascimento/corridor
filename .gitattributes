@@ -1,0 +1,3 @@
+*.pb.go linguist-generated=true
+*.connect.go linguist-generated=true
+test/replay/*.json linguist-generated=true
