@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	corridorv1 "github.com/xJohnNascimento/corridor/api/corridor/v1"
@@ -25,8 +26,9 @@ type quoteService struct {
 }
 
 // CreateQuote claims a command, mints the quote id as the provider's client reference, prices the
-// provider's quote and freezes it. A replay answers the frozen quote; an interrupted call resumes
-// with the same client reference, so a lost answer never creates a second provider quote.
+// provider's quote and freezes it. A replay answers the command as it was settled; an interrupted
+// call resumes with the same client reference, so a lost answer never creates a second provider
+// quote.
 func (s quoteService) CreateQuote(ctx context.Context, req *connect.Request[corridorv1.CreateQuoteRequest]) (*connect.Response[corridorv1.CreateQuoteResponse], error) {
 	actor := actorFrom(ctx)
 	key, err := idempotencyKey(req.Header())
@@ -47,14 +49,14 @@ func (s quoteService) CreateQuote(ctx context.Context, req *connect.Request[corr
 		return nil, failure(corridorv1.ErrorReason_ERROR_REASON_AMOUNT_OUT_OF_RANGE,
 			fmt.Sprintf("the sold amount must be between %d and %d minor units", s.cfg.Limits.MinSell, s.cfg.Limits.MaxSell))
 	}
-	// The budget pays for pricing work, not for the replay of a quote that is already frozen. It is
+	// The budget pays for pricing work, not for the replay of a command already settled. It is
 	// taken before the claim so a refusal leaves no command behind, and a retry of the same key
 	// still pays for itself.
 	state, err := s.store.CommandState(ctx, actor.ID, key)
 	if err != nil {
 		return nil, unavailable(ctx, err)
 	}
-	if state != "APPLIED" {
+	if state != "APPLIED" && state != "REJECTED" {
 		wait, err := s.store.TakeQuoteToken(ctx, actor.ID, s.cfg.Quotes.PerSecond, s.cfg.Quotes.Burst)
 		if err != nil {
 			return nil, unavailable(ctx, err)
@@ -67,24 +69,50 @@ func (s quoteService) CreateQuote(ctx context.Context, req *connect.Request[corr
 	if err != nil {
 		return nil, err
 	}
-	if cmd.State == "APPLIED" {
-		q, err := s.store.QuoteByCommand(ctx, cmd.ID)
-		if err != nil {
+	if cmd.State == "RECEIVED" {
+		if err := s.settleQuote(ctx, actor.ID, cmd.ID, string(sell), string(buy), amount); err != nil {
+			return nil, err
+		}
+		// A concurrent request with the same key may have settled the command first.
+		if cmd, err = s.store.Command(ctx, cmd.ID); err != nil {
 			return nil, unavailable(ctx, err)
 		}
-		return connect.NewResponse(&corridorv1.CreateQuoteResponse{Quote: quoteMessage(q)}), nil
 	}
-
-	q, err := s.priceQuote(ctx, actor.ID, cmd.ID.String(), string(sell), string(buy), amount)
-	if err != nil {
-		return nil, err
+	if cmd.State == "REJECTED" {
+		return nil, failure(corridorv1.ErrorReason_ERROR_REASON_QUOTE_EXPIRED,
+			"the provider's quote for this Idempotency-Key expires too soon to book; request a new quote with a new key")
 	}
-	q.CommandID = cmd.ID
-	frozen, err := s.store.FreezeQuote(ctx, q, s.cfg.Quotes.TTL)
+	q, err := s.store.QuoteByCommand(ctx, cmd.ID)
 	if err != nil {
 		return nil, unavailable(ctx, err)
 	}
-	return connect.NewResponse(&corridorv1.CreateQuoteResponse{Quote: quoteMessage(frozen)}), nil
+	return connect.NewResponse(&corridorv1.CreateQuoteResponse{Quote: quoteMessage(q)}), nil
+}
+
+// errUnbookable is a provider quote that expires too soon to book. The provider answers the same
+// quote for the same client reference, so no retry of the key could ever book it.
+var errUnbookable = errors.New("the provider quote expires too soon to book")
+
+// settleQuote freezes the priced quote, or refuses the command for good when the provider's quote
+// is unbookable.
+func (s quoteService) settleQuote(ctx context.Context, customer string, command uuid.UUID, sell, buy string, amount int64) error {
+	q, err := s.priceQuote(ctx, customer, command.String(), sell, buy, amount)
+	if errors.Is(err, errUnbookable) {
+		return storeError(ctx, s.store.RejectCommand(ctx, command, "QUOTE_EXPIRED"))
+	}
+	if err != nil {
+		return err
+	}
+	q.CommandID = command
+	_, err = s.store.FreezeQuote(ctx, q, s.cfg.Quotes.TTL)
+	return storeError(ctx, err)
+}
+
+func storeError(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	return unavailable(ctx, err)
 }
 
 func (s quoteService) priceQuote(ctx context.Context, customer, id, sell, buy string, amount int64) (store.Quote, error) {
@@ -118,7 +146,7 @@ func (s quoteService) priceQuote(ctx context.Context, customer, id, sell, buy st
 		return store.Quote{}, unavailable(ctx, err)
 	}
 	if pq.ExpiresAt.Before(now.Add(s.cfg.Quotes.TTL + s.cfg.Quotes.BookingMargin)) {
-		return store.Quote{}, unavailable(ctx, fmt.Errorf("provider quote %s expires at %s, too soon to book", pq.ID, pq.ExpiresAt))
+		return store.Quote{}, fmt.Errorf("provider quote %s expires at %s: %w", pq.ID, pq.ExpiresAt, errUnbookable)
 	}
 	return store.Quote{
 		CustomerID: customer, SellCurrency: sell, BuyCurrency: buy, SellAmount: priced.Sell, Fee: priced.Fee, NetSell: priced.NetSell,

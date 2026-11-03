@@ -49,15 +49,19 @@ func freezeQuoteFor(t *testing.T, s *Store, customer, key string, ttl time.Durat
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, err := s.FreezeQuote(ctx, Quote{
-		CommandID: cmd.ID, CustomerID: customer, SellCurrency: "CAD", BuyCurrency: "USD", SellAmount: 1000000, Fee: 5000, NetSell: 995000,
-		ProviderRateE8: 73500000, CustomerRateE8: 73463250, ProviderBuy: 731325, Buy: 730959, Spread: 366, PolicyVersion: "test",
-		ProviderQuoteID: "pq-" + key, ProviderExpiresAt: time.Now().Add(time.Minute),
-	}, ttl)
+	q, err := s.FreezeQuote(ctx, pricedQuote(cmd.ID, customer, key), ttl)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return q
+}
+
+func pricedQuote(command uuid.UUID, customer, key string) Quote {
+	return Quote{
+		CommandID: command, CustomerID: customer, SellCurrency: "CAD", BuyCurrency: "USD", SellAmount: 1000000, Fee: 5000, NetSell: 995000,
+		ProviderRateE8: 73500000, CustomerRateE8: 73463250, ProviderBuy: 731325, Buy: 730959, Spread: 366, PolicyVersion: "test",
+		ProviderQuoteID: "pq-" + key, ProviderExpiresAt: time.Now().Add(time.Minute),
+	}
 }
 
 func admit(s *Store, customer, key string, quote uuid.UUID) (Payment, bool, error) {
@@ -117,6 +121,39 @@ func TestTransitionInMovesARowOnceAndAnswersItsOwnReplay(t *testing.T) {
 	want := []string{"ADMITTED", "CONVERTING", "CONVERTED", "PAYOUT_RESERVING"}
 	if fmt.Sprint(kinds) != fmt.Sprint(want) {
 		t.Fatalf("timeline %v, want %v: a replay must not repeat its event", kinds, want)
+	}
+}
+
+func TestConcurrentFreezesOfOneQuoteAllReturnIt(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	const rounds, callers = 100, 8
+	for round := range rounds {
+		key := fmt.Sprintf("q-%d", round)
+		cmd, _, err := s.ClaimCommand(ctx, CommandClaim{ActorKind: "CUSTOMER", ActorID: "acme", RequestKey: key, Operation: "CREATE_QUOTE", Request: key}, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		quote := pricedQuote(cmd.ID, "acme", key)
+		start := make(chan struct{})
+		ids := make([]uuid.UUID, callers)
+		errs := make([]error, callers)
+		var wg sync.WaitGroup
+		for i := range callers {
+			wg.Go(func() {
+				<-start
+				frozen, err := s.FreezeQuote(ctx, quote, 30*time.Second)
+				ids[i], errs[i] = frozen.ID, err
+			})
+		}
+		close(start)
+		wg.Wait()
+		for i := range callers {
+			if errs[i] != nil || ids[i] != cmd.ID {
+				t.Fatalf("round %d, caller %d: quote %s, want %s: %v", round, i, ids[i], cmd.ID, errs[i])
+			}
+		}
 	}
 }
 
