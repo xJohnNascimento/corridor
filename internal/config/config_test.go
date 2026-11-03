@@ -30,6 +30,8 @@ func TestConfigurationIsValidatedWhenParsed(t *testing.T) {
 		"a corridor to a stranger":    {"{sell: CAD, buy: USD}", "{sell: CAD, buy: EUR}", "unknown or repeated"},
 		"a minimum above the maximum": {"min_sell: 10000", "min_sell: 30000000", "min_sell"},
 		"no minimum":                  {"min_sell: 10000", "min_sell: 0", "min_sell"},
+		"a negative fill tolerance":   {"fill_tolerance_bps: 10", "fill_tolerance_bps: -1", "fill_tolerance_bps"},
+		"a fill tolerance over 100%":  {"fill_tolerance_bps: 10", "fill_tolerance_bps: 10001", "fill_tolerance_bps"},
 		"no quote ttl":                {"ttl: 30s", "ttl: 0s", "quotes need"},
 		"no quote rate":               {"per_second: 1", "per_second: 0", "quotes need"},
 		"no quote burst":              {"burst: 5", "burst: 0", "quotes need"},

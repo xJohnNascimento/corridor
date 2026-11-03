@@ -212,19 +212,20 @@ func (s *state) convert(ctx workflow.Context) error {
 }
 
 // withinTolerance asks for a version only when the exact comparison and the wrapping one it
-// replaced disagree, so a history that booked an anomalously large fill replays as it ran.
+// replaced disagree, so a history recorded before exactTolerance replays as it ran.
 func (s *state) withinTolerance(ctx workflow.Context, delivered int64) bool {
 	tolerance := pricing.Tolerance{Bps: s.in.Policy.FillToleranceBps}
 	quoted := s.in.Quote.ProviderBuy
-	if tolerance.Within(quoted, delivered) {
-		return true
-	}
+	exact := tolerance.Within(quoted, delivered)
 	diff := delivered - quoted
 	if diff < 0 {
 		diff = -diff
 	}
 	wrapped := diff*10_000 <= quoted*tolerance.Bps
-	return wrapped && workflow.GetVersion(ctx, exactTolerance, workflow.DefaultVersion, 1) == workflow.DefaultVersion
+	if exact == wrapped || workflow.GetVersion(ctx, exactTolerance, workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		return exact
+	}
+	return wrapped
 }
 
 func (s *state) tooLateToTrade(ctx workflow.Context) bool {
