@@ -181,7 +181,7 @@ func insertProposal(ctx context.Context, tx pgx.Tx, id uuid.UUID, p Proposal) er
 	if _, err := tx.Exec(ctx, `
 		insert into fx.resolution_proposal (id, payment_id, review_reason, review_revision, decision, subject_kind, subject_id,
 		                                    provider_reference, currency, amount, evidence_id, evidence_digest, digest, maker, proposal_revision)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, nullif($9, ''), nullif($10, 0), $11, $12, $13, $14, $15)`,
+		values ($1, $2, $3, $4, $5, $6, $7, $8, nullif($9, ''), nullif($10::bigint, 0), $11, $12, $13, $14, $15)`,
 		id, p.PaymentID, r.reason, p.ReviewRevision, p.Decision, p.SubjectKind, p.SubjectID, p.ProviderReference,
 		p.Currency, p.Amount, evidenceID, evidenceDigest, digest[:], p.Maker, p.ProposalRevision,
 	); err != nil {
