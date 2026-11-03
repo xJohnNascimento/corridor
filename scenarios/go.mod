@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	connectrpc.com/connect v1.21.1
 	github.com/xJohnNascimento/corridor v0.0.0
-	github.com/xJohnNascimento/ledger/api v1.0.0
+	github.com/xJohnNascimento/ledger/api v1.0.1
 	go.yaml.in/yaml/v3 v3.0.6
 	google.golang.org/protobuf v1.36.12
 )
