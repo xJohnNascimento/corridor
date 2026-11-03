@@ -1,31 +1,51 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests", "schedule:weekly"],
   "ignoreDeps": ["github.com/xJohnNascimento/corridor"],
   "postUpdateOptions": ["gomodTidy"],
   "rebaseWhen": "behind-base-branch",
   "labels": ["release: patch"],
+  "major": {"dependencyDashboardApproval": true},
   "packageRules": [
+    {
+      "description": "scenarios and verification inherit the root module's requirements through a local replace, so indirect requirements move too, in step across all three go.mod files",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "enabled": true
+    },
+    {
+      "description": "Go module updates arrive together, in one pull request a week",
+      "matchManagers": ["gomod"],
+      "groupName": "Go modules"
+    },
     {
       "description": "Updates that only touch the workflows or the Terraform lint release nothing",
       "matchManagers": ["github-actions", "tflint-plugin"],
+      "groupName": "CI and lint",
       "labels": ["release: none"]
     },
     {
       "description": "Code generators and linters run through go tool never reach the image, so their updates release nothing",
       "matchPackageNames": ["github.com/bufbuild/buf", "go.temporal.io/sdk/contrib/tools/workflowcheck"],
+      "groupName": "build tools",
       "labels": ["release: none"]
-    },
-    {
-      "description": "A ledger release moves the API module and the compose image together",
-      "matchPackageNames": ["github.com/xJohnNascimento/ledger/api", "ghcr.io/xjohnnascimento/ledger"],
-      "groupName": "ledger"
     },
     {
       "description": "PostgreSQL moves a major version by hand, together with the test containers and Aurora",
       "matchPackageNames": ["postgres"],
       "matchUpdateTypes": ["major"],
       "enabled": false
+    },
+    {
+      "description": "A ledger release moves the API module and the compose image together, as soon as it is published",
+      "matchPackageNames": ["github.com/xJohnNascimento/ledger/api", "ghcr.io/xjohnnascimento/ledger"],
+      "groupName": "ledger",
+      "schedule": ["at any time"]
+    },
+    {
+      "description": "A Ditto release reaches Corridor as soon as it is published",
+      "matchPackageNames": ["ghcr.io/xjohnnascimento/ditto"],
+      "schedule": ["at any time"]
     }
   ]
 }
