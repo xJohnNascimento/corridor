@@ -12,7 +12,7 @@ Every resolution follows the same rules, enforced by the API and the workflow ra
 
 ### FILL_OUT_OF_TOLERANCE
 
-**What happened.** The provider filled the trade at a buy amount further from the quote than `FillToleranceBps` allows. The customer's sell amount and the provider's cash are still reserved; nothing is committed.
+**What happened.** The provider filled the trade at a buy amount further from the quote than `FillToleranceBps` allows, but not more than twice the quote; a fill beyond that opens PROVIDER_CONTRACT_BREACH instead, because no decision should book it. The customer's sell amount and the provider's cash are still reserved; nothing is committed.
 
 **Decide.** Read the trade from the provider and compare its fill with the quote.
 

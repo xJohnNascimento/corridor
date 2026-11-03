@@ -73,10 +73,16 @@ type Tolerance struct {
 	Bps int64
 }
 
+// Within compares the difference with a limit computed from a 128-bit product: multiplying the
+// difference instead wrapped for an anomalously large fill and let it pass as within tolerance.
 func (t Tolerance) Within(quoted, delivered int64) bool {
+	limit, err := money.MulDivFloor(quoted, t.Bps, bps)
+	if err != nil {
+		return false
+	}
 	diff := delivered - quoted
 	if diff < 0 {
 		diff = -diff
 	}
-	return diff*bps <= quoted*t.Bps
+	return diff <= limit
 }

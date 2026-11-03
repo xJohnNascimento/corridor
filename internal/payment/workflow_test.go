@@ -3,6 +3,7 @@ package payment_test
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -181,6 +182,15 @@ func TestFillsAreBookedOrReviewedByTolerance(t *testing.T) {
 	fill := func(delivered int64, matches bool) map[string]stub {
 		return map[string]stub{"SubmitTrade": {value: payment.TradeOutcome{Status: "FILLED", Delivered: delivered, Matches: matches}}}
 	}
+	reviewed := func(delivered int64) (map[string]stub, *payment.ReviewReason) {
+		var reason payment.ReviewReason
+		stubs := fill(delivered, true)
+		stubs["OpenReview"] = stub{value: func(_ context.Context, _ string, r payment.ReviewReason) error {
+			reason = r
+			return nil
+		}}
+		return stubs, &reason
+	}
 
 	t.Run("a fill within tolerance is booked", func(t *testing.T) {
 		f := newFlow(t, payment.Admitted, fill(731325-500, true))
@@ -195,6 +205,46 @@ func TestFillsAreBookedOrReviewedByTolerance(t *testing.T) {
 		f.run()
 		f.require(map[string]int{"CommitConversion": 0, "OpenReview": 1, "StartPayout": 0})
 		f.requireInReview(payment.Converting)
+	})
+
+	t.Run("an anomalously large fill is a contract breach rather than a fill to book", func(t *testing.T) {
+		for _, delivered := range []int64{math.MaxInt64, 2*731325 + 1} {
+			stubs, reason := reviewed(delivered)
+			f := newFlow(t, payment.Admitted, stubs)
+			f.RegisterDelayedCallback(func() {}, time.Hour)
+			f.run()
+			f.require(map[string]int{"CommitConversion": 0, "OpenReview": 1, "StartPayout": 0})
+			f.requireInReview(payment.Converting)
+			if *reason != payment.ReviewProviderContractBreach {
+				t.Errorf("delivered %d opened %s, want PROVIDER_CONTRACT_BREACH", delivered, *reason)
+			}
+		}
+	})
+
+	t.Run("a fill of twice the quote is still a fill out of tolerance", func(t *testing.T) {
+		stubs, reason := reviewed(2 * 731325)
+		f := newFlow(t, payment.Admitted, stubs)
+		f.RegisterDelayedCallback(func() {}, time.Hour)
+		f.run()
+		if *reason != payment.ReviewFillOutOfTolerance {
+			t.Errorf("opened %q, want FILL_OUT_OF_TOLERANCE", *reason)
+		}
+	})
+
+	t.Run("a history recorded before the exact judgement replays as it ran", func(t *testing.T) {
+		f := newFlow(t, payment.Admitted, fill(math.MaxInt64, true))
+		f.OnGetVersion("fill-review-exact", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+		f.run()
+		f.require(map[string]int{"CommitConversion": 1, "OpenReview": 0})
+
+		stubs, reason := reviewed(2*731325 + 1)
+		f = newFlow(t, payment.Admitted, stubs)
+		f.OnGetVersion("fill-review-exact", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+		f.RegisterDelayedCallback(func() {}, time.Hour)
+		f.run()
+		if *reason != payment.ReviewFillOutOfTolerance {
+			t.Errorf("an old history opened %q, want FILL_OUT_OF_TOLERANCE", *reason)
+		}
 	})
 
 	t.Run("a fill that does not match its trade is a breach and opens a review", func(t *testing.T) {

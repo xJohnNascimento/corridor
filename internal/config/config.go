@@ -97,6 +97,9 @@ func (c *Config) validate() error {
 	if c.Limits.MinSell <= 0 || c.Limits.MaxSell < c.Limits.MinSell {
 		return errors.New("limits need 0 < min_sell ≤ max_sell")
 	}
+	if c.Pricing.FillToleranceBps < 0 || c.Pricing.FillToleranceBps > 10_000 {
+		return errors.New("pricing needs 0 ≤ fill_tolerance_bps ≤ 10000")
+	}
 	if c.Quotes.TTL <= 0 || c.Quotes.PerSecond <= 0 || c.Quotes.Burst <= 0 {
 		return errors.New("quotes need a positive ttl, per_second and burst")
 	}

@@ -1,6 +1,8 @@
 package pricing_test
 
 import (
+	"math"
+	"math/big"
 	"testing"
 
 	"pgregory.net/rapid"
@@ -54,9 +56,26 @@ func TestPricingIdentitiesHoldForEveryInput(t *testing.T) {
 
 func TestToleranceIsTenBasisPointsOfTheQuotedAmount(t *testing.T) {
 	tolerance := pricing.Tolerance{Bps: 10}
-	for delivered, within := range map[int64]bool{731325: true, 730594: true, 730593: false, 732056: true, 732057: false} {
+	for delivered, within := range map[int64]bool{
+		731325: true, 730594: true, 730593: false, 732056: true, 732057: false,
+		1_000_000_000_000_000: false, math.MaxInt64: false,
+	} {
 		if got := tolerance.Within(731325, delivered); got != within {
 			t.Errorf("delivered %d against 731325: within %v, want %v", delivered, got, within)
 		}
 	}
+}
+
+func TestToleranceAgreesWithExactArithmetic(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		tolerance := pricing.Tolerance{Bps: rapid.Int64Range(0, 1_000).Draw(t, "bps")}
+		quoted := rapid.Int64Range(1, 1<<53).Draw(t, "quoted")
+		delivered := rapid.Int64Range(1, math.MaxInt64).Draw(t, "delivered")
+		diff := new(big.Int).Abs(new(big.Int).Sub(big.NewInt(delivered), big.NewInt(quoted)))
+		limit := new(big.Int).Mul(big.NewInt(quoted), big.NewInt(tolerance.Bps))
+		want := new(big.Int).Mul(diff, big.NewInt(10_000)).Cmp(limit) <= 0
+		if got := tolerance.Within(quoted, delivered); got != want {
+			t.Fatalf("delivered %d against %d at %d bps: within %v, want %v", delivered, quoted, tolerance.Bps, got, want)
+		}
+	})
 }
