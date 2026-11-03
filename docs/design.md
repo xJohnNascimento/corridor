@@ -278,10 +278,10 @@ Review keeps every reservation intact and waits for a decision by two operators 
 
 | Review reason | Raised when | Decisions | Applied only when | Result |
 | --- | --- | --- | --- | --- |
-| FILL_OUT_OF_TOLERANCE | A fill beyond tolerance | ACCEPT_FILL | The provider's trade read matches the proposed fill exactly | `CommitConversion` with the exact difference; CONVERTED |
+| FILL_OUT_OF_TOLERANCE | A fill beyond tolerance, up to twice the quoted amount | ACCEPT_FILL | The provider's trade read matches the proposed fill exactly | `CommitConversion` with the exact difference; CONVERTED |
 | PAYOUT_UNCONFIRMED | The poll horizon passed | PAID or NOT_PAID | PAID: a terminal statement line or terminal read matches reference, amount and currency. NOT_PAID: `FencePayout` (cancel by reference) answers CANCELLED or FAILED | PAID: `CommitPayout`; COMPLETED. NOT_PAID: `ReleasePayout` with the return; FAILED; payment PAYOUT_FAILED (RESOLVED_NOT_PAID) |
 | CONFLICTING_PROVIDER_EVIDENCE | A read-back contradicts a terminal hint, or differs in reference, amount or currency | PAID or NOT_PAID | As above | As above |
-| PROVIDER_CONTRACT_BREACH | A fill with the wrong sold amount or currency, or an idempotency conflict | RETRY_STEP once the provider has corrected its side; for a payout, also NOT_PAID | The step's own evidence rules, run again with the same references | The step's normal outcome |
+| PROVIDER_CONTRACT_BREACH | A fill with the wrong sold amount or currency, a fill of more than twice the quoted amount, or an idempotency conflict | RETRY_STEP once the provider has corrected its side; for a payout, also NOT_PAID | The step's own evidence rules, run again with the same references | The step's normal outcome |
 | LEDGER_UNEXPECTED | A reservation final in an unexpected state, or the clearing reservation refused | RETRY_STEP once an operator has corrected the ledger under its operator scope | The step, run again with the same references, finds the corrected state | The step's normal outcome |
 | RECOVERY_REQUIRED | The workflow was cancelled or terminated outside the business flow | RESUME | The watchdog shows no running workflow for the payment | The dispatcher starts a new run, which restores from the durable rows (the only use of workflow id reuse) |
 

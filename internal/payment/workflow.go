@@ -21,9 +21,10 @@ const rejectedIsFinal = "payout-rejected-is-final"
 // before it, any poll failure was the horizon.
 const pollBreachReview = "poll-contract-breach-review"
 
-// exactTolerance gates comparing a fill with its quote exactly; before it, the comparison wrapped
-// for an anomalously large fill and booked it.
-const exactTolerance = "fill-tolerance-exact"
+// exactFillReview gates judging a fill exactly: a fill that differs from its quote by more than the
+// quote itself is a contract breach, and the tolerance is compared without wrapping. Before it, an
+// anomalously large fill could pass as within tolerance and be booked.
+const exactFillReview = "fill-review-exact"
 
 // asyncReadBack gates reading a hint back in a separate Activity that the selector races
 // against the poll; before it, the hint's handler waited for the read-back and so held back the
@@ -201,8 +202,8 @@ func (s *state) convert(ctx workflow.Context) error {
 		if !out.Matches {
 			return s.openReview(ctx, ReviewProviderContractBreach)
 		}
-		if !s.withinTolerance(ctx, out.Delivered) {
-			return s.openReview(ctx, ReviewFillOutOfTolerance)
+		if reason := s.fillReview(ctx, out.Delivered); reason != "" {
+			return s.openReview(ctx, reason)
 		}
 		return s.step(ctx, acts.CommitConversion, out.Delivered, Converted)
 	case provider.TradeRejected, provider.TradeClosed:
@@ -211,18 +212,30 @@ func (s *state) convert(ctx workflow.Context) error {
 	return fmt.Errorf("trade outcome %s has no step", out.Status)
 }
 
-// withinTolerance asks for a version only when the exact comparison and the wrapping one it
-// replaced disagree, so a history recorded before exactTolerance replays as it ran.
-func (s *state) withinTolerance(ctx workflow.Context, delivered int64) bool {
+// fillReview names the review a fill needs, or "" when it is booked. A fill that differs from its
+// quote by more than the quote itself, more than twice what was quoted, is no fill difference but
+// an answer outside the provider's contract, which no operator decision should book. A version is
+// asked for only when this judgement and the wrapping one it replaced disagree, so a history
+// recorded before exactFillReview replays as it ran.
+func (s *state) fillReview(ctx workflow.Context, delivered int64) ReviewReason {
 	tolerance := pricing.Tolerance{Bps: s.in.Policy.FillToleranceBps}
 	quoted := s.in.Quote.ProviderBuy
-	exact := tolerance.Within(quoted, delivered)
 	diff := delivered - quoted
 	if diff < 0 {
 		diff = -diff
 	}
-	wrapped := diff*10_000 <= quoted*tolerance.Bps
-	if exact == wrapped || workflow.GetVersion(ctx, exactTolerance, workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+	var exact ReviewReason
+	switch {
+	case diff > quoted:
+		exact = ReviewProviderContractBreach
+	case !tolerance.Within(quoted, delivered):
+		exact = ReviewFillOutOfTolerance
+	}
+	var wrapped ReviewReason
+	if diff*10_000 > quoted*tolerance.Bps {
+		wrapped = ReviewFillOutOfTolerance
+	}
+	if exact == wrapped || workflow.GetVersion(ctx, exactFillReview, workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 		return exact
 	}
 	return wrapped
