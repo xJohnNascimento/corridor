@@ -1,7 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
+  "ignoreDeps": ["github.com/xJohnNascimento/corridor"],
   "postUpdateOptions": ["gomodTidy"],
+  "rebaseWhen": "behind-base-branch",
   "labels": ["release: patch"],
   "packageRules": [
     {
@@ -18,6 +20,12 @@
       "description": "A ledger release moves the API module and the compose image together",
       "matchPackageNames": ["github.com/xJohnNascimento/ledger/api", "ghcr.io/xjohnnascimento/ledger"],
       "groupName": "ledger"
+    },
+    {
+      "description": "PostgreSQL moves a major version by hand, together with the test containers and Aurora",
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ]
 }
