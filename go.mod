@@ -21,7 +21,7 @@ require (
 	github.com/xJohnNascimento/ledger/api v1.0.0
 	go.temporal.io/api v1.63.5
 	go.temporal.io/sdk v1.50.0
-	go.yaml.in/yaml/v3 v3.0.5
+	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/sync v0.24.0
 	google.golang.org/protobuf v1.36.12
 	pgregory.net/rapid v1.3.0
