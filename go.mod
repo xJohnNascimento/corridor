@@ -11,6 +11,7 @@ tool (
 
 require (
 	connectrpc.com/connect v1.21.1
+	connectrpc.com/connect/v2 v2.0.2
 	connectrpc.com/grpchealth v1.5.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.12.0
