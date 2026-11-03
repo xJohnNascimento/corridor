@@ -19,7 +19,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
 	github.com/xJohnNascimento/ledger/api v1.0.1
-	go.temporal.io/api v1.63.5
+	go.temporal.io/api v1.64.1
 	go.temporal.io/sdk v1.50.0
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/sync v0.24.0
