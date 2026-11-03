@@ -41,7 +41,27 @@ jobs:
             echo "No pull request merged since the last release asks for one."
             exit 0
           fi
-          gh release create "$version" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$version" --generate-notes
+          # Release tags are annotated, as Git intends for releases. A run that failed after creating
+          # the tag finds it in place, so it is created only when missing.
+          tag() {
+            if ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$1" --jq '"\(.object.type) \(.object.sha)"' 2>/dev/null); then
+              target=${ref#* }
+              if [ "${ref%% *}" = tag ]; then
+                target=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$target" --jq .object.sha)
+              fi
+              if [ "$target" != "$SHA" ]; then
+                echo "::error::The tag $1 already points at $target, not at $SHA. Move or delete it before this release can continue."
+                exit 1
+              fi
+              return
+            fi
+            object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$1" -f message="$1" -f object="$SHA" -f type=commit \
+              -f "tagger[name]=github-actions[bot]" -f "tagger[email]=41898282+github-actions[bot]@users.noreply.github.com" \
+              -f "tagger[date]=$(date -u +%Y-%m-%dT%H:%M:%SZ)" --jq .sha)
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$1" -f sha="$object" > /dev/null
+          }
+          tag "$version"
+          gh release create "$version" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$version" --generate-notes
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
   # A tag pushed with the workflow's own token starts no other workflow, so the image is built here.
