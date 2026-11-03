@@ -5,8 +5,13 @@
   "labels": ["release: patch"],
   "packageRules": [
     {
-      "description": "Updates that only touch the workflows release nothing",
-      "matchManagers": ["github-actions"],
+      "description": "Updates that only touch the workflows or the Terraform lint release nothing",
+      "matchManagers": ["github-actions", "tflint-plugin"],
+      "labels": ["release: none"]
+    },
+    {
+      "description": "Code generators and linters run through go tool never reach the image, so their updates release nothing",
+      "matchPackageNames": ["github.com/bufbuild/buf", "go.temporal.io/sdk/contrib/tools/workflowcheck"],
       "labels": ["release: none"]
     },
     {
