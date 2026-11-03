@@ -178,9 +178,11 @@ For live reconciliation, each run persists its source watermarks and overlaps th
 
 ## 6. Integration scenarios
 
-Each scenario runs against the real services and databases, triggers its failure at a named boundary, asserts what the customer sees, asserts provider and ledger counts and exact amounts, and then runs the verifier. The main suite runs scenarios one at a time for readability. A separate concurrency suite runs with unique references and deterministic barriers, repeatedly.
+Each scenario runs against the real services and databases, triggers its failure at a named boundary, asserts what the customer sees, asserts provider and ledger counts and exact amounts, and then runs the verifier. The main suite runs scenarios one at a time for readability. A separate concurrency suite, built in v2, runs with unique references and deterministic barriers, repeatedly.
 
 **Seed and isolation.** `make seed` loads `scenarios/seed.yaml`: the assets, the provider cash and funding-equity accounts (Corridor creates its revenue and difference accounts at boot), provider cash of 1,000,000.00 in each of BRL, CAD, EUR and USD (funded in Ditto and booked in the ledger with the same references), and the demo customers `acme` (50,000.00 in each currency) and `tinyco` (CAD 50.00). Each scenario creates its own customer, funded exactly for its payment, so no two scenarios share a customer balance. Provider cash is shared, so scenarios assert provider balance changes, not absolute balances; S14 and S15, which drain provider cash, run only in the serial suite and restore it afterwards.
+
+v1 runs 23 scenarios: S01–S21, S24 and S25. S22, S23 and S26 arrive with v2 ([plan, M5](plan.md#m5-hardening-v2)).
 
 | Id | Scenario | Trigger | Acceptance |
 | --- | --- | --- | --- |
@@ -215,7 +217,7 @@ Each scenario runs against the real services and databases, triggers its failure
 
 At least three corrupted snapshots must each fail a specific invariant: a missing fill-difference leg (V5), a second provider payout for one reference (V6), and a return next to a successful payout (V6, V7). An incomplete provider statement must yield INCOMPLETE. Corruption is applied to fixtures or disposable datasets; no production endpoint can mutate money data.
 
-`make evidence` writes the release bundle:
+`make evidence`, built in v2 ([plan, P3](plan.md#m5-hardening-v2)), writes the release bundle:
 
 ```
 release-manifest.json      commit, image digests, tool versions, dataset id

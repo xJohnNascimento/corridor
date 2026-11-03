@@ -19,7 +19,7 @@ The product is deliberately narrow. It exists to show how Temporal carries a rea
 | One payout per payment, cancellable until it is submitted | Rail calendars and cutoffs, returns days later, payout fees |
 | Waiting for provider liquidity before a payout | Treasury rebalancing |
 | Two-person resolution of every outcome the provider cannot confirm | Customer webhooks and an events feed |
-| Scheduled reconciliation and a runtime watchdog | Value dates (Ditto settles instantly) |
+| Scheduled reconciliation and a runtime watchdog (v2) | Value dates (Ditto settles instantly) |
 | | Compliance: KYC/KYB, sanctions screening, travel-rule data, monitoring, reporting |
 | | Local currency rules: BRL, for example, crosses borders only through a foreign-exchange contract with an institution authorized by Brazil's central bank; the simulation treats every pair alike |
 
@@ -132,7 +132,7 @@ Connect-go (gRPC and HTTP/JSON), package `corridor.v1`, in `api/corridor/v1/`, c
 | `OpsService.ListReviews` | operator | Open reviews, oldest first, from Postgres |
 | `OpsService.ProposeResolution` | operator | A decision bound to its evidence ([section 8](#8-human-decisions)) → command |
 | `OpsService.ApproveResolution` | operator | `proposal_id, proposal_digest` → command |
-| `OpsService.GetReconciliation`, `ListFindings`, `AcknowledgeFinding` | operator | Reports and findings ([section 11](#11-reconciliation-and-watchdog)) |
+| `OpsService.GetReconciliation`, `ListFindings`, `AcknowledgeFinding` | operator | Reports and findings ([section 11](#11-reconciliation-and-watchdog)); in the contract now, answering `unimplemented` until v2 |
 | `OpsService.ExportSnapshot` | auditor | A consistent read-only snapshot of payments, payouts, trades, evidence, ledger intents and commands, in the same envelope as the ledger's export (header with schema version and capture time, records, trailer with counts and content hash) |
 | `POST /webhooks/ditto` | Ditto | Signed provider events, internal port ([section 9](#9-webhook-inbox-and-dispatcher)) |
 
@@ -265,7 +265,7 @@ sequenceDiagram
     W->>L: ReservePayout, attempt n again (same command)
     L-->>W: stored outcome: reserved
     W->>L: ReleasePayout with the return journal
-    W->>W: CANCELLED; payment PAYOUT_CANCELLED
+    W->>W: CANCELLED, payment PAYOUT_CANCELLED
 ```
 
 If the stored outcome had been a refusal, `ReturnUnreservedPayout` would post the return instead; either way, exactly one return.
@@ -603,11 +603,11 @@ Plus `gofmt`, `goimports`, `ctx` first, errors wrapped with `%w`, and no `init()
 | Layer | Tool | Covers |
 | --- | --- | --- |
 | Unit and property | Go tests, `rapid` | Pricing rounding, the transition table, retry-safe transitions, error mapping, money types |
-| Workflow | Temporal time-skipping test suite, activities mocked | Every row of the tables in 6.1 to 6.4, cancel at each payout state, cancel racing the release, hints vs polls, Continue-As-New, history bounds, cancellation handling |
+| Workflow | Temporal time-skipping test suite, activities mocked | Every row of the tables in 6.1 to 6.4, cancel at each payout state, cancel racing the release, hints vs polls, cancellation handling; Continue-As-New and history bounds with v2 |
 | Replay | `worker.WorkflowReplayer` | The committed corpus |
 | Integration | testcontainers or the Compose stack | Admission concurrency, the cancel gate, the inbox, dispatcher leases, every status write against real Postgres |
 | Provider contract | `providertest` against the pinned Ditto image, on a certification account of its own so its operations never reach Corridor's books | The guarantees in Ditto's design, section 2 |
-| Scenarios | The scenario runner | S01 to S26 with the verifier after each ([integration, section 6](integration.md#6-integration-scenarios)) |
+| Scenarios | The scenario runner | S01–S21, S24 and S25 with the verifier after each; S22, S23 and S26 with v2 ([integration, section 6](integration.md#6-integration-scenarios)) |
 
 ## 16. Build tasks
 
