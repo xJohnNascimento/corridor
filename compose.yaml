@@ -103,7 +103,7 @@ services:
       test: ["CMD", "/ledger", "healthcheck"]
 
   ditto-migrate:
-    image: ghcr.io/xjohnnascimento/ditto:1.0.0@sha256:faa66ed22bfa4980c025db3699441cc53fc66ba1235b4b0b3fe1364e6f93206a
+    image: ghcr.io/xjohnnascimento/ditto:1.0.2@sha256:16b9532de9354e8c7b51307ec593cd98deda243b53a10e689284922ca703a89c
     command: ["migrate"]
     environment:
       DITTO_DATABASE_URL: postgres://postgres@postgres:5432/ditto?sslmode=disable
@@ -112,7 +112,7 @@ services:
         condition: service_healthy
 
   ditto:
-    image: ghcr.io/xjohnnascimento/ditto:1.0.0@sha256:faa66ed22bfa4980c025db3699441cc53fc66ba1235b4b0b3fe1364e6f93206a
+    image: ghcr.io/xjohnnascimento/ditto:1.0.2@sha256:16b9532de9354e8c7b51307ec593cd98deda243b53a10e689284922ca703a89c
     command: ["serve"]
     environment:
       DITTO_PROFILE: local
