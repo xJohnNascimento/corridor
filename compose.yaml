@@ -37,7 +37,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d fx"]
 
   temporal:
-    image: temporalio/temporal:1.10.0@sha256:003508da05989e7cf0d583cfce521c4bb2732e733574e3040db8f1284783baa2
+    image: temporalio/temporal:1.10.1@sha256:b228dadf9cdb6c7c02a1394b89dd76f827aac9760e458fce42f0899a10141225
     command:
       - server
       - start-dev
@@ -58,7 +58,7 @@ services:
 
   temporal-spike:
     profiles: ["spike"]
-    image: temporalio/temporal:1.10.0@sha256:003508da05989e7cf0d583cfce521c4bb2732e733574e3040db8f1284783baa2
+    image: temporalio/temporal:1.10.1@sha256:b228dadf9cdb6c7c02a1394b89dd76f827aac9760e458fce42f0899a10141225
     command:
       - server
       - start-dev
